@@ -9,6 +9,9 @@ struct Boo
     static method isdead takes unit u returns boolean 
         return(GetUnitTypeId(u) < 1 or IsUnitType(u, UNIT_TYPE_DEAD) == true) 
     endmethod 
+    static method ishero takes unit u returns boolean 
+        return(IsUnitType(u, UNIT_TYPE_HERO) == true) 
+    endmethod 
     static method islive takes unit u returns boolean 
         return(GetUnitState(u, UNIT_STATE_LIFE) > 0) 
     endmethod 
