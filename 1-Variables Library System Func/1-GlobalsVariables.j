@@ -10,6 +10,7 @@ globals
     item bj_item = null // instead of bj_lastCreatedItem           
     unit bj_unit = null // instead of bj_lastCreatedUnit           
     effect bj_eff = null // instead of bj_lastCreatedEffect          
+    group bj_group = null // instead of bj_lastCreatedEffect          
     location bj_loc = Location(0, 0) //Warning: Don't set bj_loc = Location() use MoveLocation instead  
     rect bj_rect = Rect(0, 0, 0, 0) //Warning: Don't set bj_loc = Location() use MoveLocation instead  
     texttag bj_texttag = null 
@@ -23,7 +24,7 @@ globals
     constant real P32 = 0.03125 // Explore this number; it truly has significance.         
     constant real P64 = 0.03125 * 2 // Explore this number; it truly has significance.       
     //Environment Dev      
-    constant boolean ENV_DEV = false // Are u on a testing mode ?        
+    constant boolean ENV_DEV = true // Are u on a testing mode ?        
 
     //Utils          
     constant string SYSTEM_CHAT = "[SYSTEM]: |cffffcc00" 
@@ -37,7 +38,13 @@ globals
     constant string RN = "|r|n" 
     //Setting Game        
     constant real ARMOR_CONSTANT = 0.03 // Assign it with the value you set in the gameplay constant.    
-    constant integer MAX_PLAYER = 24 
+    constant real STR_HP = 25 // Assign it with the value you set in the gameplay constant.    
+    constant real STR_REGEN = 0.05 // Assign it with the value you set in the gameplay constant.    
+    constant real AGI_AR = 0.3 // Assign it with the value you set in the gameplay constant.    
+    constant real AGI_MS = 1 // Assign it with the value you set in the gameplay constant.    
+    constant real INT_MP = 15 // Assign it with the value you set in the gameplay constant.    
+    constant real INT_REGEN = 0.05 // Assign it with the value you set in the gameplay constant.   
+    constant integer MAX_PLAYER = 6 
     constant integer MAX_SIZE_DIALOG_BUTTON = 24 
     constant boolean CREEP_SLEEP = false 
     constant boolean LOCK_RESOURCE_TRADING = true 
@@ -46,6 +53,10 @@ globals
     constant real GAME_STATUS_TIME = 1.00 
     constant real GAME_SETTING_TIME = 3.00 
     constant real GAME_START_TIME = 5.00 
-
+    constant string green = "|cff0afd2b" 
+    constant string purple = "|cffb308b3" 
+    constant  string blue = "|cff5264ff" 
+    constant  string yellow = "|cffFFCC00" 
+    constant  string cyan = "|cff00d9ff" 
 endglobals 
 

@@ -44,9 +44,13 @@ struct PLAYER
         call SetPlayerFlagBJ(PLAYER_STATE_GIVES_BOUNTY, flag, Player(id)) 
     endmethod 
     //=============RESEARCH=================== 
-    static method SetResearchLevel takes integer tech_id, integer level, integer pid returns nothing 
+    static method settech takes integer tech_id, integer level, integer pid returns nothing 
         call SetPlayerTechResearchedSwap(tech_id, level, Player(pid)) 
     endmethod 
+    static method techlv takes integer tech_id, integer pid returns integer 
+        return GetPlayerTechCountSimple(tech_id, Player(pid))
+    endmethod 
+    
     //=============ALLIANCE=================== 
     static method SetAllyWith takes integer pid, integer to_pid returns nothing 
         call SetPlayerAllianceStateBJ(Player(pid), Player(to_pid), bj_ALLIANCE_ALLIED_VISION) 
@@ -80,7 +84,11 @@ struct PLAYER
             call.questmsg(GetLocalPlayer(), msg, msgtype) 
         endif 
     endmethod 
-
+    static method msgforce takes force f, string msg, real duration returns nothing 
+        if(IsPlayerInForce(GetLocalPlayer(), f)) then 
+            call DisplayTimedTextToPlayer(GetLocalPlayer(), 0, 0, duration, msg) 
+        endif 
+    endmethod 
     static method questmsgforce takes force f, string msg, integer msgtype returns nothing 
         if(IsPlayerInForce(GetLocalPlayer(), f)) then 
             call.questmsg(GetLocalPlayer(), msg, msgtype) 

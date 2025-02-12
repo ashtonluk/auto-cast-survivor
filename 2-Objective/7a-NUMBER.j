@@ -13,13 +13,26 @@ struct Num
     static method ri2s takes real r returns string 
         return I2S(R2I(r)) 
     endmethod 
-    //====================================================================================  
-    ///======Player   
+    //====================================================================================   
+    static method rdeg takes nothing returns real 
+        return GetRandomReal(0, 360) 
+    endmethod 
+    static method ri takes integer min, integer max returns integer 
+        return GetRandomInt(min, max) 
+    endmethod 
+    static method rr takes real min, real max returns real 
+        return GetRandomReal(min, max) 
+    endmethod 
+    //====================================================================================     
+    ///======Player      
     static method pid takes player whichPlayer returns integer 
         return GetPlayerId(whichPlayer) 
     endmethod 
    
     static method uid takes unit u returns integer 
         return GetPlayerId(GetOwningPlayer(u)) 
+    endmethod 
+    static method utid takes unit u returns integer 
+        return GetUnitTypeId(u) 
     endmethod 
 endstruct

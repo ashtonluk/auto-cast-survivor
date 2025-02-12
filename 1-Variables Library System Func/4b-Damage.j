@@ -8,6 +8,53 @@ struct BSTAT
     static integer resist_spell = StringHash("ResistSpell") 
     static integer pierce_spell = StringHash("PierceSpell") 
 endstruct 
+
+struct Bonus 
+    static integer Physical = StringHash("phys") 
+    static integer Spell = StringHash("spell") 
+    static integer Crit = StringHash("crit") 
+    static integer CritDmg = StringHash("critdmg") 
+    static integer anim = StringHash("anim") 
+    static integer cd = StringHash("cd") 
+    static integer default_crit = 0
+    static integer default_crit_dmg = 135
+    static method stat takes unit u , integer st returns integer 
+        return LoadInteger(stats, GetHandleId(u), st)
+    endmethod
+    static method stat_int takes unit u , integer st, integer bonus returns integer 
+        local integer r = 0
+        set r = LoadInteger(stats, GetHandleId(u), st) + bonus
+        return r
+    endmethod
+    static method stat_real takes unit u , integer st, real bonus returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st) ) + bonus 
+        return r
+    endmethod
+    static method stat_real_rate takes unit u , integer st returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st)) / 100
+        return r
+    endmethod
+    static method stat_real_bonus_rate takes unit u , integer st , integer bonus returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st) + bonus ) / 100
+        return r
+    endmethod
+    static method save_stat takes unit u , integer st, integer value returns nothing 
+        call SaveInteger(stats, GetHandleId(u), st, value)
+        // call BJDebugMsg(I2S(LoadInteger(stats, GetHandleId(u), st)))
+    endmethod
+    static method apply takes unit u returns nothing 
+        call .save_stat(u, .Physical, 0)
+        call .save_stat(u, .Spell, 0)
+        call .save_stat(u, .Crit, 0)
+        call .save_stat(u, .CritDmg, 0)
+        call .save_stat(u, .anim, 0)
+        call .save_stat(u, .cd, 0)
+    endmethod
+endstruct
+
 struct DMGSTAT 
     static real dmg = 0.00 
     static unit victim 
@@ -31,8 +78,8 @@ struct DMGSTAT
         set.uidv = GetUnitTypeId(DMGSTAT.victim) 
         set.idv = GetHandleId(DMGSTAT.victim) 
         set.idc = GetHandleId(DMGSTAT.caster) 
-        set.crit_dmg = BSTAT.crit_dmg_default + (LoadReal(stats, .idc, BSTAT.crit_dmg)) 
-        set.crit_chance = BSTAT.crit_chance_default + LoadReal(stats, .idc, BSTAT.crit_chance) 
+        set.crit_dmg = Bonus.stat_real_bonus_rate(DMGSTAT.caster, Bonus.CritDmg, Bonus.default_crit_dmg)
+        set.crit_chance = Bonus.stat_real(DMGSTAT.caster, Bonus.Crit, Bonus.default_crit)
         set.evasion = 0 + LoadReal(stats, .idv, BSTAT.evasion) 
         set.resist_spell = 0 + LoadReal(stats, .idv, BSTAT.resist_spell) 
         set.pierce_spell = 0 + LoadReal(stats, .idc, BSTAT.pierce_spell) 
@@ -103,7 +150,7 @@ struct DMGEVENT
                         // call BJDebugMsg(R2S(DMGSTAT.crit_chance))                                        
                         if Math.rate(DMGSTAT.crit_chance) then 
                             // call BJDebugMsg(R2S(DMGSTAT.crit_dmg))                                        
-                            set DMGSTAT.dmg = DMGSTAT.dmg * (DMGSTAT.crit_dmg / 100) 
+                            set DMGSTAT.dmg = DMGSTAT.dmg * (DMGSTAT.crit_dmg) 
                             set color_dmg_type = "Crit" 
                         endif 
                         call Proc.onStuck() 
@@ -187,9 +234,7 @@ struct DMGEVENT
         endif 
        
         call BlzSetEventDamage(DMGSTAT.dmg) 
-        if (GetOwningPlayer(DMGSTAT.caster) != Player(10) and GetOwningPlayer(DMGSTAT.caster) != Player(11)) or  ((GetOwningPlayer(DMGSTAT.caster) == Player(10) or GetOwningPlayer(DMGSTAT.caster) == Player(11)) and (GetOwningPlayer(DMGSTAT.victim) != Player(10) and GetOwningPlayer(DMGSTAT.victim) != Player(11)) ) then 
-            call TextDmg.run(color_dmg_type, DMGSTAT.dmg, DMGSTAT.victim, DMGSTAT.caster)     
-        endif
+        call TextDmg.run(color_dmg_type, DMGSTAT.dmg, DMGSTAT.victim, DMGSTAT.caster)     
     endmethod 
     private static method onInit takes nothing returns nothing 
         local trigger t = CreateTrigger() 

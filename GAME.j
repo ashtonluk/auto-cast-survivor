@@ -3,16 +3,22 @@
 struct GAME 
     static boolean IsSinglePlay = false 
     static integer CountPlayer = 0 
+    static unit array Survivor 
     static Randompool pool_item
     static Randompool pool_item_rare
     static Multiboard MB 
+    static real centerX = - 21800
+    static real centerY =  - 22500
     private static method GameStart takes nothing returns nothing 
         local framehandle test1 = null 
 
-
+        call EXAMPLE_LEADERBOARD.start()
+        set IntervalP32.time = 3.20 * 15
+        call COUNTDOWN_TIMER.start_timer(15)
+        call IntervalP32.start()
         // call PauseGame(false)               
-        // call CinematicModeBJ(false, GetPlayersAll()) 
-        // call DisplayCineFilter(false) 
+        call CinematicModeBJ(false, GetPlayersAll()) 
+        call DisplayCineFilter(false) 
         if ENV_DEV then 
             call DisplayTextToForce(GetPlayersAll(), "Game Start ...") 
         endif 
@@ -48,7 +54,8 @@ struct GAME
         call.pool_item.new_value('I00L', 30, 0, 1)  //Tome of Level [2]
         //Rare Item
         call.pool_item.add_rare(.pool_item)
-  
+
+      
 
 
    
@@ -67,6 +74,8 @@ struct GAME
             exitwhen n > (MAX_PLAYER - 1) 
             if PLAYER.IsPlayerOnline(Player(n)) then 
                 set PLAYER.IsDisconect[n] = false 
+                set GAME.Survivor[n] = CreateUnit(Player(n), 'H000', Math.ppx(.centerX, 400, 30 * n), Math.ppy(.centerY, 400, 30 * n), 270)
+                call Bonus.apply( GAME.Survivor[n])
                 set GAME.CountPlayer = GAME.CountPlayer + 1 
             else 
                 set PLAYER.IsDisconect[n] = true 
@@ -79,20 +88,20 @@ struct GAME
     private static method PreloadMap takes nothing returns nothing 
 
         // call PauseGame(true)               
-        // call CinematicModeBJ(true, GetPlayersAll()) 
+        call CinematicModeBJ(true, GetPlayersAll()) 
 
-        // call AbortCinematicFadeBJ() 
-        // call SetCineFilterTexture("ReplaceableTextures\\CameraMasks\\Black_mask.blp") 
-        // call SetCineFilterBlendMode(BLEND_MODE_BLEND) 
-        // call SetCineFilterTexMapFlags(TEXMAP_FLAG_NONE) 
-        // call SetCineFilterStartUV(0, 0, 1, 1) 
-        // call SetCineFilterEndUV(0, 0, 1, 1) 
-        // call SetCineFilterStartColor(255, 255, 255, 255) 
-        // call SetCineFilterEndColor(255, 255, 255, 255) 
-        // call SetCineFilterDuration(GAME_START_TIME - GAME_PRELOAD_TIME) 
-        // call DisplayCineFilter(true) 
+        call AbortCinematicFadeBJ() 
+        call SetCineFilterTexture("ReplaceableTextures\\CameraMasks\\Black_mask.blp") 
+        call SetCineFilterBlendMode(BLEND_MODE_BLEND) 
+        call SetCineFilterTexMapFlags(TEXMAP_FLAG_NONE) 
+        call SetCineFilterStartUV(0, 0, 1, 1) 
+        call SetCineFilterEndUV(0, 0, 1, 1) 
+        call SetCineFilterStartColor(255, 255, 255, 255) 
+        call SetCineFilterEndColor(255, 255, 255, 255) 
+        call SetCineFilterDuration(GAME_START_TIME - GAME_PRELOAD_TIME) 
+        call DisplayCineFilter(true) 
     
-        // call PanCameraToTimed(0, 0, 0) 
+        call PanCameraToTimed(- 21800, - 22500, 0) 
         if ENV_DEV then 
             call DisplayTextToForce(GetPlayersAll(), "Preload ...") 
         endif 

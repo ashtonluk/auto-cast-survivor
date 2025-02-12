@@ -23,6 +23,17 @@ struct REGISTER_EVENT
 
         call DestroyTimer(GetExpiredTimer()) 
     endmethod
+    static method regKey takes oskeytype hotkey, code func returns nothing
+        local trigger t = CreateTrigger( )
+        local integer i = 0
+        loop
+            exitwhen i == MAX_PLAYER - 1
+            call BlzTriggerRegisterPlayerKeyEvent( t, Player(i), hotkey, 0, true )
+            set i = i + 1
+        endloop
+        call TriggerAddAction( t, func )
+        set t = null
+    endmethod
     private static method onInit takes nothing returns nothing 
         call TimerStart(CreateTimer(), TIME_SETUP_EVENT, false, function thistype.SetupAllEvent) 
     endmethod 

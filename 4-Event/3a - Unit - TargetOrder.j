@@ -12,8 +12,8 @@ struct EV_TARGET_ORDER
         if i != null then 
             if orderid >= 852008 and orderid <= 852013 then 
                 if ENV_DEV then 
-                    call BJDebugMsg(I2S(GetIssuedOrderId())) 
-                    call BJDebugMsg(GetItemName(i)) 
+                    // call BJDebugMsg(I2S(GetIssuedOrderId())) 
+                    // call BJDebugMsg(GetItemName(i)) 
                 endif 
             endif 
         endif 

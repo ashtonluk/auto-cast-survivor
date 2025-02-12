@@ -11,6 +11,7 @@ globals
     item bj_item = null // instead of bj_lastCreatedItem           
     unit bj_unit = null // instead of bj_lastCreatedUnit           
     effect bj_eff = null // instead of bj_lastCreatedEffect          
+    group bj_group = null // instead of bj_lastCreatedEffect          
     location bj_loc = Location(0, 0) //Warning: Don't set bj_loc = Location() use MoveLocation instead  
     rect bj_rect = Rect(0, 0, 0, 0) //Warning: Don't set bj_loc = Location() use MoveLocation instead  
     texttag bj_texttag = null 
@@ -24,7 +25,7 @@ globals
     constant real P32 = 0.03125 // Explore this number; it truly has significance.         
     constant real P64 = 0.03125 * 2 // Explore this number; it truly has significance.       
     //Environment Dev      
-    constant boolean ENV_DEV = false // Are u on a testing mode ?        
+    constant boolean ENV_DEV = true // Are u on a testing mode ?        
 
     //Utils          
     constant string SYSTEM_CHAT = "[SYSTEM]: |cffffcc00" 
@@ -38,7 +39,13 @@ globals
     constant string RN = "|r|n" 
     //Setting Game        
     constant real ARMOR_CONSTANT = 0.03 // Assign it with the value you set in the gameplay constant.    
-    constant integer MAX_PLAYER = 24 
+    constant real STR_HP = 25 // Assign it with the value you set in the gameplay constant.    
+    constant real STR_REGEN = 0.05 // Assign it with the value you set in the gameplay constant.    
+    constant real AGI_AR = 0.3 // Assign it with the value you set in the gameplay constant.    
+    constant real AGI_MS = 1 // Assign it with the value you set in the gameplay constant.    
+    constant real INT_MP = 15 // Assign it with the value you set in the gameplay constant.    
+    constant real INT_REGEN = 0.05 // Assign it with the value you set in the gameplay constant.   
+    constant integer MAX_PLAYER = 6 
     constant integer MAX_SIZE_DIALOG_BUTTON = 24 
     constant boolean CREEP_SLEEP = false 
     constant boolean LOCK_RESOURCE_TRADING = true 
@@ -47,7 +54,11 @@ globals
     constant real GAME_STATUS_TIME = 1.00 
     constant real GAME_SETTING_TIME = 3.00 
     constant real GAME_START_TIME = 5.00 
-
+    constant string green = "|cff0afd2b" 
+    constant string purple = "|cffb308b3" 
+    constant  string blue = "|cff5264ff" 
+    constant  string yellow = "|cffFFCC00" 
+    constant  string cyan = "|cff00d9ff" 
 endglobals 
 
 
@@ -208,6 +219,53 @@ struct BSTAT
     static integer resist_spell = StringHash("ResistSpell") 
     static integer pierce_spell = StringHash("PierceSpell") 
 endstruct 
+
+struct Bonus 
+    static integer Physical = StringHash("phys") 
+    static integer Spell = StringHash("spell") 
+    static integer Crit = StringHash("crit") 
+    static integer CritDmg = StringHash("critdmg") 
+    static integer anim = StringHash("anim") 
+    static integer cd = StringHash("cd") 
+    static integer default_crit = 0
+    static integer default_crit_dmg = 135
+    static method stat takes unit u , integer st returns integer 
+        return LoadInteger(stats, GetHandleId(u), st)
+    endmethod
+    static method stat_int takes unit u , integer st, integer bonus returns integer 
+        local integer r = 0
+        set r = LoadInteger(stats, GetHandleId(u), st) + bonus
+        return r
+    endmethod
+    static method stat_real takes unit u , integer st, real bonus returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st) ) + bonus 
+        return r
+    endmethod
+    static method stat_real_rate takes unit u , integer st returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st)) / 100
+        return r
+    endmethod
+    static method stat_real_bonus_rate takes unit u , integer st , integer bonus returns real 
+        local real r = 0.0
+        set r = I2R(LoadInteger(stats, GetHandleId(u), st) + bonus ) / 100
+        return r
+    endmethod
+    static method save_stat takes unit u , integer st, integer value returns nothing 
+        call SaveInteger(stats, GetHandleId(u), st, value)
+        // call BJDebugMsg(I2S(LoadInteger(stats, GetHandleId(u), st)))
+    endmethod
+    static method apply takes unit u returns nothing 
+        call .save_stat(u, .Physical, 0)
+        call .save_stat(u, .Spell, 0)
+        call .save_stat(u, .Crit, 0)
+        call .save_stat(u, .CritDmg, 0)
+        call .save_stat(u, .anim, 0)
+        call .save_stat(u, .cd, 0)
+    endmethod
+endstruct
+
 struct DMGSTAT 
     static real dmg = 0.00 
     static unit victim 
@@ -231,8 +289,8 @@ struct DMGSTAT
         set.uidv = GetUnitTypeId(DMGSTAT.victim) 
         set.idv = GetHandleId(DMGSTAT.victim) 
         set.idc = GetHandleId(DMGSTAT.caster) 
-        set.crit_dmg = BSTAT.crit_dmg_default + (LoadReal(stats, .idc, BSTAT.crit_dmg)) 
-        set.crit_chance = BSTAT.crit_chance_default + LoadReal(stats, .idc, BSTAT.crit_chance) 
+        set.crit_dmg = Bonus.stat_real_bonus_rate(DMGSTAT.caster, Bonus.CritDmg, Bonus.default_crit_dmg)
+        set.crit_chance = Bonus.stat_real(DMGSTAT.caster, Bonus.Crit, Bonus.default_crit)
         set.evasion = 0 + LoadReal(stats, .idv, BSTAT.evasion) 
         set.resist_spell = 0 + LoadReal(stats, .idv, BSTAT.resist_spell) 
         set.pierce_spell = 0 + LoadReal(stats, .idc, BSTAT.pierce_spell) 
@@ -303,7 +361,7 @@ struct DMGEVENT
                         // call BJDebugMsg(R2S(DMGSTAT.crit_chance))                                        
                         if Math.rate(DMGSTAT.crit_chance) then 
                             // call BJDebugMsg(R2S(DMGSTAT.crit_dmg))                                        
-                            set DMGSTAT.dmg = DMGSTAT.dmg * (DMGSTAT.crit_dmg / 100) 
+                            set DMGSTAT.dmg = DMGSTAT.dmg * (DMGSTAT.crit_dmg) 
                             set color_dmg_type = "Crit" 
                         endif 
                         call Proc.onStuck() 
@@ -387,9 +445,7 @@ struct DMGEVENT
         endif 
        
         call BlzSetEventDamage(DMGSTAT.dmg) 
-        if (GetOwningPlayer(DMGSTAT.caster) != Player(10) and GetOwningPlayer(DMGSTAT.caster) != Player(11)) or  ((GetOwningPlayer(DMGSTAT.caster) == Player(10) or GetOwningPlayer(DMGSTAT.caster) == Player(11)) and (GetOwningPlayer(DMGSTAT.victim) != Player(10) and GetOwningPlayer(DMGSTAT.victim) != Player(11)) ) then 
-            call TextDmg.run(color_dmg_type, DMGSTAT.dmg, DMGSTAT.victim, DMGSTAT.caster)     
-        endif
+        call TextDmg.run(color_dmg_type, DMGSTAT.dmg, DMGSTAT.victim, DMGSTAT.caster)     
     endmethod 
     private static method onInit takes nothing returns nothing 
         local trigger t = CreateTrigger() 
@@ -489,9 +545,13 @@ struct PLAYER
         call SetPlayerFlagBJ(PLAYER_STATE_GIVES_BOUNTY, flag, Player(id)) 
     endmethod 
     //=============RESEARCH=================== 
-    static method SetResearchLevel takes integer tech_id, integer level, integer pid returns nothing 
+    static method settech takes integer tech_id, integer level, integer pid returns nothing 
         call SetPlayerTechResearchedSwap(tech_id, level, Player(pid)) 
     endmethod 
+    static method techlv takes integer tech_id, integer pid returns integer 
+        return GetPlayerTechCountSimple(tech_id, Player(pid))
+    endmethod 
+    
     //=============ALLIANCE=================== 
     static method SetAllyWith takes integer pid, integer to_pid returns nothing 
         call SetPlayerAllianceStateBJ(Player(pid), Player(to_pid), bj_ALLIANCE_ALLIED_VISION) 
@@ -525,7 +585,11 @@ struct PLAYER
             call.questmsg(GetLocalPlayer(), msg, msgtype) 
         endif 
     endmethod 
-
+    static method msgforce takes force f, string msg, real duration returns nothing 
+        if(IsPlayerInForce(GetLocalPlayer(), f)) then 
+            call DisplayTimedTextToPlayer(GetLocalPlayer(), 0, 0, duration, msg) 
+        endif 
+    endmethod 
     static method questmsgforce takes force f, string msg, integer msgtype returns nothing 
         if(IsPlayerInForce(GetLocalPlayer(), f)) then 
             call.questmsg(GetLocalPlayer(), msg, msgtype) 
@@ -933,57 +997,96 @@ struct Frame
 endstruct
 
 //--- Content from folder: ./2-Objective/1e-LEADERBOARD.j ---
-//I don't use leaderboard and not have experience for do it...
+//I don't use leaderboard and not have experience for do it...         
 
-// call CreateLeaderboardBJ( GetPlayersAll(), "TRIGSTR_040" )    
-// call DestroyLeaderboardBJ( GetLastCreatedLeaderboard() )    
-// call LeaderboardSortItemsBJ( GetLastCreatedLeaderboard(), bj_SORTTYPE_SORTBYVALUE, false )    
-// call LeaderboardDisplayBJ( false, GetLastCreatedLeaderboard() )    
-// call LeaderboardSetLabelBJ( GetLastCreatedLeaderboard(), "TRIGSTR_042" )    
-// call LeaderboardSetLabelColorBJ( GetLastCreatedLeaderboard(), 100, 80, 20, 0 )    
-// call LeaderboardSetValueColorBJ( GetLastCreatedLeaderboard(), 100, 80, 20, 0 )    
-// call LeaderboardSetStyleBJ( GetLastCreatedLeaderboard(), true, true, true, true )    
-// call LeaderboardAddItemBJ( Player(0), GetLastCreatedLeaderboard(), "TRIGSTR_044", 0 )    
-// call LeaderboardRemovePlayerItemBJ( Player(0), GetLastCreatedLeaderboard() )    
-// call LeaderboardSetPlayerItemLabelBJ( Player(0), GetLastCreatedLeaderboard(), "TRIGSTR_046" )    
-// call LeaderboardSetPlayerItemLabelColorBJ( Player(0), GetLastCreatedLeaderboard(), 100, 80, 20, 0 )    
-// call LeaderboardSetPlayerItemValueBJ( Player(0), GetLastCreatedLeaderboard(), 0 )    
-// call LeaderboardSetPlayerItemValueColorBJ( Player(0), GetLastCreatedLeaderboard(), 100, 80, 20, 0 )    
-// call LeaderboardSetPlayerItemStyleBJ( Player(0), GetLastCreatedLeaderboard(), true, true, true )  
+// call CreateLeaderboardBJ( GetPlayersAll(), "TRIGSTR_040" )             
+// call DestroyLeaderboardBJ( GetLastCreatedLeaderboard() )             
+// call LeaderboardSortItemsBJ( GetLastCreatedLeaderboard(), bj_SORTTYPE_SORTBYVALUE, false )             
+// call LeaderboardDisplayBJ( false, GetLastCreatedLeaderboard() )             
+// call LeaderboardSetLabelBJ( GetLastCreatedLeaderboard(), "TRIGSTR_042" )             
+// call LeaderboardSetLabelColorBJ( GetLastCreatedLeaderboard(), 100, 80, 20, 0 )             
+// call LeaderboardSetValueColorBJ( GetLastCreatedLeaderboard(), 100, 80, 20, 0 )             
+// call LeaderboardSetStyleBJ( GetLastCreatedLeaderboard(), true, true, true, true )             
 
-//Uses : see code in file EXAMPLE.j
-// struct Leaderboard 
-//     leaderboard lb 
-//     method new takes string title returns nothing 
-//         set.lb = CreateLeaderboard() 
-//         call LeaderboardSetLabel(.lb, title) 
-//     endmethod 
-//     method setforce takes force f, boolean display returns nothing 
-//         call ForceSetLeaderboardBJ(.lb, f) 
-//         call LeaderboardDisplay(.lb, display) 
-//     endif 
-//     method display takes boolean status returns nothing 
-//         call LeaderboardDisplay(.lb, status) 
-//     endmethod 
-//     method displayx takes boolean status, player p returns nothing 
-//         if(GetLocalPlayer() == p) then 
-//             // Use only local code (no net traffic) within this block to avoid desyncs.                     
-//             call LeaderboardDisplay(.lb, status) 
-//         endif 
-//     endmethod 
-//     method setlabel takes string label returns nothing 
-//         local integer size = LeaderboardGetItemCount(lb) 
-//         call LeaderboardSetLabel(.lb, label) 
-//         if(LeaderboardGetLabelText(.lb) == "") then 
-//             set size = size - 1 
-//         endif 
-//         call LeaderboardSetSizeByItemCount(lb, size) 
-//     endmethod 
+// call LeaderboardAddItemBJ(Player(0), GetLastCreatedLeaderboard(), "TRIGSTR_044", 0)     
+// call LeaderboardRemovePlayerItemBJ(Player(0), GetLastCreatedLeaderboard())     
 
-//     method destroylb takes boolean status returns nothing 
-//         call DestroyLeaderboard(.lb) 
-//     endmethod 
-// endstruct
+// call LeaderboardSetPlayerItemLabelBJ( Player(0), GetLastCreatedLeaderboard(), "TRIGSTR_046" )             
+// call LeaderboardSetPlayerItemLabelColorBJ( Player(0), GetLastCreatedLeaderboard(), 100, 80, 20, 0 )             
+// call LeaderboardSetPlayerItemValueBJ( Player(0), GetLastCreatedLeaderboard(), 0 )             
+// call LeaderboardSetPlayerItemValueColorBJ( Player(0), GetLastCreatedLeaderboard(), 100, 80, 20, 0 )             
+
+// call LeaderboardSetPlayerItemStyleBJ( Player(0), GetLastCreatedLeaderboard(), true, true, true )           
+
+//Uses : see code in file EXAMPLE.j         
+struct Leaderboard 
+    leaderboard lb 
+    method new takes string title returns nothing 
+        set.lb = CreateLeaderboard() 
+        call LeaderboardSetLabel(.lb, title) 
+    endmethod 
+    method setforce takes force f, boolean display returns nothing 
+        call ForceSetLeaderboardBJ(.lb, f) 
+        call LeaderboardDisplay(.lb, display) 
+    endmethod 
+    method display takes boolean status returns nothing 
+        call LeaderboardDisplay(.lb, status) 
+    endmethod 
+    method displayx takes boolean status, player p returns nothing 
+        if(GetLocalPlayer() == p) then 
+            // Use only local code (no net traffic) within this block to avoid desyncs.                              
+            call LeaderboardDisplay(.lb, status) 
+        endif 
+    endmethod 
+    method setlabel takes string label returns nothing 
+        local integer size = LeaderboardGetItemCount(lb) 
+        call LeaderboardSetLabel(.lb, label) 
+        if(LeaderboardGetLabelText(.lb) == "") then 
+            set size = size - 1 
+        endif 
+        call LeaderboardSetSizeByItemCount(lb, size) 
+    endmethod 
+    method additem takes player p, string label, integer value returns nothing 
+        if(LeaderboardHasPlayerItem(.lb, p)) then 
+            call LeaderboardRemovePlayerItem(.lb, p) 
+        endif 
+        call LeaderboardAddItem(.lb, label, value, p) 
+        call LeaderboardResizeBJ(.lb) 
+    endmethod 
+    method removeitem takes player p returns nothing 
+        call LeaderboardRemovePlayerItem(.lb, p) 
+        call LeaderboardResizeBJ(.lb) 
+    endmethod 
+    method style takes player p, boolean showLabel, boolean showValue, boolean showIcon returns nothing 
+        call LeaderboardSetItemStyle(lb, LeaderboardGetPlayerIndex(.lb, p), showLabel, showValue, showIcon) 
+    endmethod 
+    method setlabelp takes player p, string str returns nothing 
+        call LeaderboardSetPlayerItemLabelBJ(p,.lb, str) 
+    endmethod 
+    method setvalue takes player p, integer value returns nothing 
+        call LeaderboardSetItemValue(.lb, LeaderboardGetPlayerIndex(.lb, p), value) 
+    endmethod 
+    method coloritem takes player p, integer r, integer g, integer b, integer a returns nothing 
+        call LeaderboardSetPlayerItemLabelColorBJ(p,.lb, r, g, b, a) 
+    endmethod 
+    method colorvalue takes player p, integer r, integer g, integer b, integer a returns nothing 
+        call LeaderboardSetPlayerItemValueColorBJ(p,.lb, r, g, b, a) 
+    endmethod 
+    method sort takes leaderboard lb, integer sortType, boolean ascending returns nothing 
+        if(sortType == bj_SORTTYPE_SORTBYVALUE) then 
+            call LeaderboardSortItemsByValue(lb, ascending) 
+        elseif(sortType == bj_SORTTYPE_SORTBYPLAYER) then 
+            call LeaderboardSortItemsByPlayer(lb, ascending) 
+        elseif(sortType == bj_SORTTYPE_SORTBYLABEL) then 
+            call LeaderboardSortItemsByLabel(lb, ascending) 
+        else 
+            // Unrecognized sort type - ignore the request.   
+        endif 
+    endmethod 
+    method destroylb takes boolean status returns nothing 
+        call DestroyLeaderboard(.lb) 
+    endmethod 
+endstruct
 
 //--- Content from folder: ./2-Objective/1e-Quest.j ---
 struct Questmsg 
@@ -1565,32 +1668,57 @@ endstruct
 //==> call DUMMY.target("thunderbolt",target, ability_id , level_of_ability) [Search order name of spell u add]                            
 // But it's only work for use make some effect to enemy (please select target allow in skill is Air,Ground )  
 //when you use freedom dummy then u need use newx, it's will return new dummy  
-struct Dummy 
-    static integer dummy_id = 'e000' //Set your id dummy                                 
-    static unit load = null 
+
+
+struct DummyX 
+    static integer dummy_id = 'e000' //Set your id dummy                                     
+    // static integer dummy_id = 'edry' //Set your id dummy    
+    static integer stun_id = 'A001'                              
+    static unit array load 
     static method new takes nothing returns nothing 
-        set.load = CreateUnit(Player(PLAYER_NEUTRAL_PASSIVE),.dummy_id, 0, 0, 0) 
-        call UnitAddAbility(.load, 'Avul') 
-        call UnitAddAbility(.load, 'Aloc') 
+        set bj_forLoopAIndex = 0 
+        
+        loop 
+            exitwhen bj_forLoopAIndex > 11 
+            set.load[bj_forLoopAIndex] = CreateUnit(Player(bj_forLoopAIndex), .dummy_id, 0, 0, 0) 
+            call UnitAddAbility(.load[bj_forLoopAIndex], 'Avul') 
+            call UnitAddAbility(.load[bj_forLoopAIndex], 'Aloc') 
+            set bj_forLoopAIndex = bj_forLoopAIndex + 1 
+        endloop 
+
+        set.load[GetPlayerNeutralAggressive()] = CreateUnit(Player(GetPlayerNeutralAggressive()), .dummy_id, 0, 0, 0) 
+        call UnitAddAbility(.load[GetPlayerNeutralAggressive()], 'Avul') 
+        call UnitAddAbility(.load[GetPlayerNeutralAggressive()], 'Aloc') 
+
         call DestroyTimer(GetExpiredTimer()) 
     endmethod 
     static method newx takes integer pid returns unit 
-        set bj_unit = CreateUnit(Player(pid),.dummy_id, 0, 0, 0) 
-        call UnitAddAbility(bj_unit, 'Avul') 
-        call UnitAddAbility(bj_unit, 'Aloc') 
-        return bj_unit 
+        set bj_lastCreatedUnit = CreateUnit(Player(pid), .dummy_id, 0, 0, 0) 
+        call UnitAddAbility(bj_lastCreatedUnit, 'Avul') 
+        call UnitAddAbility(bj_lastCreatedUnit, 'Aloc') 
+        return bj_lastCreatedUnit 
     endmethod 
     static method target takes string ordername, unit dummy, unit u, integer spell_id, integer level returns nothing 
-        call SetUnitX(dummy, GetUnitX(u)) 
-        call SetUnitY(dummy, GetUnitY(u)) 
+        // call SetUnitX(dummy, GetUnitX(u)) 
+        // call SetUnitY(dummy, GetUnitY(u)) 
         call UnitAddAbility(dummy, spell_id) 
         call SetUnitAbilityLevel(dummy, spell_id, level) 
         call IssueTargetOrder(dummy, ordername, u) 
         call UnitRemoveAbility(dummy, spell_id) 
     endmethod 
+    static method stun takes unit dummy, unit u, real duration returns nothing 
+        // call SetUnitX(dummy, GetUnitX(u)) 
+        // call SetUnitY(dummy, GetUnitY(u)) 
+        call UnitAddAbility(dummy, .stun_id) 
+        // call SetUnitAbilityLevel(dummy, spell_id, level) 
+        call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_NORMAL, 0, duration )
+        call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_HERO, 0, duration )
+        call IssueTargetOrder(dummy, "thunderbolt", u) 
+        call UnitRemoveAbility(dummy, .stun_id) 
+    endmethod 
     static method point takes string ordername, unit dummy, real x, real y, integer level, integer spell_id returns nothing 
-        call SetUnitX(dummy, x) 
-        call SetUnitY(dummy, y) 
+        // call SetUnitX(dummy, x)     
+        // call SetUnitY(dummy, y)     
         call UnitAddAbility(dummy, spell_id) 
         call SetUnitAbilityLevel(dummy, spell_id, level) 
         call MoveLocation(bj_loc, x, y) 
@@ -1602,7 +1730,7 @@ struct Dummy
         call SetUnitY(dummy, y) 
         call UnitAddAbility(dummy, spell_id) 
         call SetUnitAbilityLevel(dummy, spell_id, level) 
-        call IssueImmediateOrder(bj_unit, ordername) 
+        call IssueImmediateOrder(bj_lastCreatedUnit, ordername) 
         call UnitRemoveAbility(dummy, spell_id) 
     endmethod 
     private static method onInit takes nothing returns nothing 
@@ -1611,60 +1739,60 @@ struct Dummy
 endstruct 
 
 //--- Content from folder: ./2-Objective/6b-DEBUFF.j ---
-struct Buff 
-    static boolean array is_target 
-    static boolean array is_point 
-    static boolean array is_notarget 
-    static string array order_name 
-    static integer array ability_id 
-    static integer id = -1 
-    static integer STUN = 0 
-    static integer SLOW = 0 
-    private static method newbuff takes boolean is_target, boolean is_point, boolean is_notarget, string order_name, integer ability_id returns nothing 
-        set.id =.id + 1 
-        set.is_target[.id] = is_target 
-        set.is_point[.id] = is_point 
-        set.is_notarget[.id] = is_notarget 
-        set.order_name[.id] = order_name 
-        set.ability_id[.id] = ability_id 
-        call Preload_Ability(ability_id) 
-    endmethod 
-    static method effect takes unit caster, unit target, integer buff_id, real x, real y, integer buff_lv, integer buff_dur returns boolean 
-        if ENV_DEV then 
-            call PLAYER.systemchat(Player(0), "[] buff_id:" + I2S(buff_id) + " [] level: " + I2S(buff_lv)) 
-        endif 
-        //You can custom buff your rule, here is example                                       
-        if buff_id > -1 and buff_id <= id then 
-            if.is_target[buff_id] and not IsUnitDeadBJ(target) and target != null then 
-                call Dummy.target(.order_name[buff_id], Dummy.load, target,.ability_id[buff_id], buff_lv) 
-                // if ENV_DEV then         
-                //     call PLAYER.systemchat(Player(0), "[] Target")         
-                // endif         
-                return false 
-            endif 
-            if.is_point[buff_id] then 
-                call Dummy.newx(Num.pid(GetOwningPlayer(caster))) 
-                call UnitApplyTimedLife(bj_unit, 'BTLF', buff_dur) // time for u finish cast or channeling spell then dummy will destroy      
-                call Dummy.point(.order_name[buff_id], Dummy.load, x, y, buff_lv,.ability_id[buff_id]) 
+// struct Buff 
+//     static boolean array is_target 
+//     static boolean array is_point 
+//     static boolean array is_notarget 
+//     static string array order_name 
+//     static integer array ability_id 
+//     static integer id = -1 
+//     static integer STUN = 0 
+//     static integer SLOW = 0 
+//     private static method newbuff takes boolean is_target, boolean is_point, boolean is_notarget, string order_name, integer ability_id returns nothing 
+//         set.id =.id + 1 
+//         set.is_target[.id] = is_target 
+//         set.is_point[.id] = is_point 
+//         set.is_notarget[.id] = is_notarget 
+//         set.order_name[.id] = order_name 
+//         set.ability_id[.id] = ability_id 
+//         call Preload_Ability(ability_id) 
+//     endmethod 
+//     static method effect takes unit caster, unit target, integer buff_id, real x, real y, integer buff_lv, integer buff_dur returns boolean 
+//         if ENV_DEV then 
+//             call PLAYER.systemchat(Player(0), "[] buff_id:" + I2S(buff_id) + " [] level: " + I2S(buff_lv)) 
+//         endif 
+//         //You can custom buff your rule, here is example                                       
+//         if buff_id > -1 and buff_id <= id then 
+//             if.is_target[buff_id] and not IsUnitDeadBJ(target) and target != null then 
+//                 call Dummy.target(.order_name[buff_id], Dummy.load, target,.ability_id[buff_id], buff_lv) 
+//                 // if ENV_DEV then         
+//                 //     call PLAYER.systemchat(Player(0), "[] Target")         
+//                 // endif         
+//                 return false 
+//             endif 
+//             if.is_point[buff_id] then 
+//                 call Dummy.newx(Num.pid(GetOwningPlayer(caster))) 
+//                 call UnitApplyTimedLife(bj_unit, 'BTLF', buff_dur) // time for u finish cast or channeling spell then dummy will destroy      
+//                 call Dummy.point(.order_name[buff_id], Dummy.load, x, y, buff_lv,.ability_id[buff_id]) 
 
-                return false 
-            endif 
-            if.is_notarget[buff_id] then 
-                call Dummy.newx(Num.pid(GetOwningPlayer(caster))) 
-                call UnitApplyTimedLife(bj_unit, 'BTLF', buff_dur) // time for u finish cast or channeling spell then dummy will destroy      
-                call Dummy.notarget(.order_name[buff_id], Dummy.load, x, y, buff_lv,.ability_id[buff_id]) 
-                return false 
-            endif 
-        endif 
-        return false 
-    endmethod 
-    private static method onInit takes nothing returns nothing 
-        call.newbuff(true, false, false, "creepthunderbolt", 'A001') 
-        set.STUN =.id 
-        call.newbuff(true, false, false, "slow", 'A002') 
-        set.SLOW =.id 
-    endmethod 
-endstruct
+//                 return false 
+//             endif 
+//             if.is_notarget[buff_id] then 
+//                 call Dummy.newx(Num.pid(GetOwningPlayer(caster))) 
+//                 call UnitApplyTimedLife(bj_unit, 'BTLF', buff_dur) // time for u finish cast or channeling spell then dummy will destroy      
+//                 call Dummy.notarget(.order_name[buff_id], Dummy.load, x, y, buff_lv,.ability_id[buff_id]) 
+//                 return false 
+//             endif 
+//         endif 
+//         return false 
+//     endmethod 
+//     private static method onInit takes nothing returns nothing 
+//         call.newbuff(true, false, false, "creepthunderbolt", 'A001') 
+//         set.STUN =.id 
+//         call.newbuff(true, false, false, "slow", 'A002') 
+//         set.SLOW =.id 
+//     endmethod 
+// endstruct
 
 //--- Content from folder: ./2-Objective/6d----------------------.j ---
 
@@ -1685,8 +1813,18 @@ struct Num
     static method ri2s takes real r returns string 
         return I2S(R2I(r)) 
     endmethod 
-    //====================================================================================  
-    ///======Player   
+    //====================================================================================   
+    static method rdeg takes nothing returns real 
+        return GetRandomReal(0, 360) 
+    endmethod 
+    static method ri takes integer min, integer max returns integer 
+        return GetRandomInt(min, max) 
+    endmethod 
+    static method rr takes real min, real max returns real 
+        return GetRandomReal(min, max) 
+    endmethod 
+    //====================================================================================     
+    ///======Player      
     static method pid takes player whichPlayer returns integer 
         return GetPlayerId(whichPlayer) 
     endmethod 
@@ -1694,16 +1832,52 @@ struct Num
     static method uid takes unit u returns integer 
         return GetPlayerId(GetOwningPlayer(u)) 
     endmethod 
+    static method utid takes unit u returns integer 
+        return GetUnitTypeId(u) 
+    endmethod 
 endstruct
 
 //--- Content from folder: ./2-Objective/7b-BOOLEAN.j ---
 struct Boo 
-    //Boolean to String 
+    //Boolean to String              
     static method b2s takes boolean b returns string 
         if b then 
             return "True" 
         endif 
         return "False" 
+    endmethod 
+    static method isdead takes unit u returns boolean 
+        return(GetUnitTypeId(u) < 1 or IsUnitType(u, UNIT_TYPE_DEAD) == true) 
+    endmethod 
+    static method islive takes unit u returns boolean 
+        return(GetUnitState(u, UNIT_STATE_LIFE) > 0) 
+    endmethod 
+    static method isenemy takes unit u, unit e returns boolean 
+        return IsUnitEnemy(e, GetOwningPlayer(u)) 
+    endmethod 
+    static method iswalk takes real x, real y returns boolean 
+        return IsTerrainPathable(x, y, PATHING_TYPE_WALKABILITY) 
+    endmethod 
+    static method nounit takes unit u, real x, real y, real aoe returns boolean 
+        local group g = CreateGroup() 
+        local unit e = null 
+        local boolean b = true 
+        set g = CreateGroup() 
+        call Group.enum(g, x, y, aoe) 
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen e == null 
+            if Boo.islive(e) and e != u and Num.utid(e) != 'n000' then 
+                set b = false 
+            endif 
+            call Group.remove(e, g) 
+            if not b then 
+                exitwhen true 
+            endif 
+        endloop 
+        call Group.release(g) 
+        set e = null 
+        return b 
     endmethod 
 endstruct
 
@@ -1962,191 +2136,1103 @@ endstruct
 
 
 //--- Content from folder: ./3-Skill/1-SampleSkill.j ---
-struct SKILL 
-    unit caster = null 
-    unit target = null 
-    unit u = null 
-    group g = null 
-    damagetype DMG_TYPE = null 
-    attacktype ATK_TYPE = null 
-    integer time = 0 
+// struct SKILL 
+//     unit caster = null 
+//     unit target = null 
+//     unit u = null 
+//     group g = null 
+//     damagetype DMG_TYPE = null 
+//     attacktype ATK_TYPE = null 
+//     integer time = 0 
+//     real increment = 0.00
+//     real speed = 0.00 
+//     real dmg = 0.00 
+//     real aoe = 0.00 
+//     real a = 0.00 
+//     real p = 0.00 
+//     real x = 0.00 
+//     real y = 0.00 
+//     real xt = 0.00 
+//     real yt = 0.00 
+//     real z = 0.00 
+//     real h = 0.00
+//     integer buff_id 
+//     integer buff_lv 
+//     integer buff_dur 
 
-    real speed = 0.00 
-    real dmg = 0.00 
-    real aoe = 0.00 
-    real a = 0.00 
-    real x = 0.00 
-    real y = 0.00 
-    real z = 0.00 
+//     effect missle = null 
+//     string missle_path = "" 
+//     real missle_size = 1.00
+//     real missle_speed = 1.00
+//     boolean is_touch = false 
+//     integer count = 0
 
-    integer buff_id 
-    integer buff_lv 
-    integer buff_dur 
 
-    effect missle = null 
-    string missle_path = "" 
-    real missle_size = 0.00 
-    boolean is_touch = false 
+//     lightning light = null 
+//     string light_name = ""
+//     lightning light2 = null 
+//     string light_name2 = ""
 
-    boolean ALLOW_GROUND = true 
-    boolean ALLOW_FLYING = true 
+//     real t = 0.00 // Giá trị tham số (0.0 -> 1.0)
+//     real startX = 0.00 
+//     real startY = 0.00 
+//     real startZ = 0.00 
+//     real midX = 0.00 
+//     real midY = 0.00 
+//     real midZ = 0.00 
+//     real endX = 0.00  
+//     real endY = 0.00 
+//     real endZ = 0.00 
+//     method setxyz takes real x, real y, real z returns nothing 
+//         set.x = x 
+//         set.y = y 
+//         set.z = z 
+//     endmethod 
+//     method Ally takes unit u , unit e returns boolean 
+//         if not IsUnitDead(e) and IsUnitAlly(e, GetOwningPlayer(u)) and IsUnitHero(e) then 
+//             return true 
+//         endif 
+//         return false
+//     endmethod
+//     method FilterUnit takes unit u, unit e returns boolean 
+//         if not IsUnitDead(e)  and IsUnitEnemy(e, GetOwningPlayer(u)) and BlzIsUnitInvulnerable(e) == false then 
+//             return true 
+//         endif 
+//         return false
+//     endmethod
+// endstruct 
+// struct Missle_Touch extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
 
-    boolean ALLOW_HERO = true 
-    boolean ALLOW_STRUCTURE = true 
-    boolean ALLOW_MECHANICAL = true 
-    boolean ALLOW_ENEMY = true 
-    boolean ALLOW_ALLY = true 
-    boolean ALLOW_MAGIC_IMMUNE = true 
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
 
-    boolean ALLOW_ALIVE = true 
-    method FilterCompare takes boolean is, boolean yes, boolean no returns boolean 
-        return(is and yes) or((not is) and no) 
-    endmethod 
-    method setxyz takes real x, real y, real z returns nothing 
-        set.x = x 
-        set.y = y 
-        set.z = z 
-    endmethod 
-    method setallow takes boolean ALLOW_HERO, boolean ALLOW_STRUCTURE, boolean ALLOW_FLYING, boolean ALLOW_GROUND, boolean ALLOW_MECHANICAL, boolean ALLOW_ALIVE, boolean ALLOW_MAGIC_IMMUNE returns nothing 
-        set.ALLOW_GROUND = ALLOW_GROUND 
-        set.ALLOW_FLYING = ALLOW_FLYING 
-        set.ALLOW_HERO = ALLOW_HERO 
-        set.ALLOW_STRUCTURE = ALLOW_STRUCTURE 
-        set.ALLOW_MECHANICAL = ALLOW_MECHANICAL 
-        set.ALLOW_ENEMY = ALLOW_ENEMY 
-        set.ALLOW_ALLY = ALLOW_ALLY 
-        set.ALLOW_MAGIC_IMMUNE = ALLOW_MAGIC_IMMUNE 
-        set.ALLOW_ALIVE = ALLOW_ALIVE 
-    endmethod 
-    method FilterUnit takes unit u, unit caster returns boolean 
-        if not.FilterCompare(IsUnitAlly(u, GetOwningPlayer(caster)),.ALLOW_ALLY,.ALLOW_ENEMY) then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_HERO) and not.ALLOW_HERO then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_STRUCTURE) and not.ALLOW_STRUCTURE then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_FLYING) and not.ALLOW_FLYING then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_GROUND) and not.ALLOW_GROUND then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_MECHANICAL) and not.ALLOW_MECHANICAL then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_MAGIC_IMMUNE) and not.ALLOW_MAGIC_IMMUNE then 
-            return false 
-        endif 
-        if GetUnitState(u, UNIT_STATE_LIFE) > 0 and not.ALLOW_ALIVE then 
-            return false 
-        endif 
-        return true 
-    endmethod 
-endstruct 
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         // set mt = Missle_Touch.create()
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Pierce extends SKILL 
+//     string attach = ""
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
 
-struct SKILL_MISSLE extends SKILL 
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null)
+//             if not IsUnitInGroup(e, .g) and.FilterUnit( .caster, e) then 
+//                 call groups.add(e, .g)
+//                 call ex.chest(.attach, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0  then 
+//             call groups.release(.g)
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.g = CreateGroup()
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Find extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  or IsUnitDead(.target) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .a = GetAB(.x, .y, GetUnitX(.target), GetUnitY(.target))
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) and e ==.target then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Rain extends SKILL
+//     real gravity = 5.00
+//     string nova_path = "Objects\\Spawnmodels\\NightElf\\NECancelDeath\\NECancelDeath.mdl"
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.z = .z - .gravity
+//         // call BJDebugMsg(R2S(.z))
+//         call BlzSetSpecialEffectZ( .missle, GetPZ( .x, .y) + .z) 
+//         if.z <= 0 then 
+//             call ex.nova( .nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen e == null 
+//                 if.FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call DestroyEffect( .missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance   
+//         endif
+      
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z)
+//         call ex.size( .missle, .missle_size) 
+//         set.p = 180
+//         call ex.pitch( .missle, .p)
+//         call ex.angle( .missle, .a)
+//         call ex.speed( .missle, .missle_speed)
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 Gán u là một unit missle, cho nó di chuyển tới target chỉ định và gây dmg kết thúc
+// struct Missle_Unit_Find extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  or IsUnitDead(.target) then // Unit chết thì ko làm gì
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .a = GetAB(.x, .y, GetUnitX(.target), GetUnitY(.target))
+//         set .speed = .speed + .increment
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call SetUnitFacing(.u, .a)
+//         call SetUnitX(.u, .x)
+//         call SetUnitY(.u, .y)
+//         call SetUnitFlyHeight(.u, GetPZ( .x, .y) + .z, 0)
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) and e ==.target then 
+//                 set.is_touch = true 
+//                 call ex.chest(.missle_path, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call SetUnitPathing(.u, false)
+//         call UnitAddAbility(.u, 'Arav')
+//         call UnitRemoveAbility(.u, 'Arav')
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 Gọi ra 1 cái bẫy tồn tại X giây, khi có kẻ địch trong phạm vi thì phát nổ
+// struct Trap_AoE extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null)
+//             if .FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call ex.chest(.attach_path, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         if .is_touch then 
+//             call ex.nova(.nova_path, .x, .y)
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 AoE DPS : Mỗi X time gọi ra effect và gây dmg aoe | tick: Mỗi x time sẽ gọi , increment : Giảm x time mỗi lần gọi
+// struct AoE_DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e)  then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //🎀 DPS : Mỗi X time gọi ra effect và gây dmg target | tick: Mỗi x time sẽ gọi , increment : Giảm x time mỗi lần gọi
+// struct DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.chest(.attach_path, .target)
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //Gây sát thương đơn lẻ lên target sau X giây
+// struct DE extends SKILL 
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call ex.chest(.attach_path, .target)
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //🎀 Missle_Nova: Di chuyển missle từ caster tới vị trí chỉ định và gây sát thương sau khi tới vị trí chỉ định
+// struct Missle_Nova extends SKILL 
+//     string nova_path = "Objects\\Spawnmodels\\NightElf\\NECancelDeath\\NECancelDeath.mdl"
+//     string attach_path = ""
+//     real nova_size = 1.00
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
+
     
-    //=====================FireTouch========================================== 
-    private static method FireTouchUpdate takes nothing returns nothing 
-        local thistype this = runtime.get() 
-        local timer t = GetExpiredTimer() 
-        local group g = null 
-        local unit e = null 
-        set.x = Math.ppx(.x,.speed,.a) 
-        set.y = Math.ppy(.y,.speed,.a) 
-        call Eff.angle(.missle,.a) 
-        call Eff.pos(.missle,.x,.y, Math.pz(.x,.y) +.z) 
 
-        set g = CreateGroup() 
-        call Group.enum(g,.x,.y,.aoe) 
-        loop 
-            set e = FirstOfGroup(g) 
-            exitwhen e == null 
-            if not.is_touch and.FilterUnit(e,.caster) and e !=.caster then 
-                set.is_touch = true 
-                call UnitDamageTargetBJ(.caster, e,.dmg,.ATK_TYPE,.DMG_TYPE) 
-                call Buff.effect(.caster, e,.buff_id,.x,.y,.buff_lv,.buff_dur) 
-            endif 
-            call Group.remove(e, g) 
-        endloop 
-        call Group.release(g) 
-        set e = null 
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call DestroyEffect(.missle)
 
-        set.time =.time - 1 
-        if.time <= 0 or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 or.is_touch then 
-            call DestroyEffect(.missle) 
-            call runtime.endx(t) // End the timer                                                                                                                                                                          
-            call.destroy() // Destroy the instance                                      
-        endif 
-    endmethod 
-    method FireTouch takes nothing returns boolean 
-        // local thistype this = thistype.create()                  
-        set.missle = Eff.new(.missle_path,.x,.y, Math.pz(.x,.y) +.z) 
-        call Eff.size(.missle,.missle_size) 
-        call Eff.angle(.missle,.a) 
-        if ENV_DEV then 
-            call PLAYER.systemchat(Player(0), "[SKILL] Fire Touch") 
-            call PLAYER.systemchat(Player(0), missle_path) 
-        endif 
-        call runtime.new(this, P32, true, function thistype.FireTouchUpdate) 
-        return false 
-    endmethod 
-    //=================================================================================== 
+//             set bj_lastCreatedEffect = AddSpecialEffect(.nova_path, .x, .y) 
+//             call ex.size( bj_lastCreatedEffect, .nova_size) 
+//             call DestroyEffect(bj_lastCreatedEffect)
+
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null )
+//                 if .FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .time = R2I( (GetDB (.x, .y, .xt, .yt)) / .speed)
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a)  
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 AoE_Cone : Gây sát thương theo hình nón
+// struct AoE_Cone extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     real cone_angle = 35
+//     method AngleBetween takes real a1, real a2 returns real
+//         local real diff = RAbsBJ(a1 - a2)
+//         if diff > 180 then
+//             set diff = 360 - diff
+//         endif
+//         return diff
+//     endmethod
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e) and .AngleBetween(GetAB(GetPPX(.x, - 1 * (.aoe / 2), .a ), GetPPY(.y, - 1 * (.aoe / 2), .a ), GetUnitX(e), GetUnitY(e)), .a) <= .cone_angle / 2 then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 VFX_Unit_Scale : Tăng hoặc giảm kích cỡ một unit trong time
+// struct VFX_Unit_Scale extends SKILL 
+//     real scale_increment = 0.025
+//     boolean is_reverse = true 
+//     boolean default_end = true
+//     real scale_original = 1.00
+//     real scale = 1.00
+//     integer reverse_tick = 0 // 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+     
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             if .default_end then 
+//                 call SetUnitScale(.caster, .scale_original, .scale_original, .scale_original)
+//             endif
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if .time <= .reverse_tick and .is_reverse then 
+//             set .scale = .scale - .scale_increment
+//         else
+//             set .scale = .scale + .scale_increment
+//         endif
+//         call SetUnitScale(.caster, .scale, .scale, .scale)
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             if .default_end then 
+//                 call SetUnitScale(.caster, .scale_original, .scale_original, .scale_original)
+//             endif
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .scale = .scale_original
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct SFX_VoHon extends SKILL 
+//     real scale_increment = 0.025
+//     real scale = 1.00
+//     integer reverse_tick = 0 // 
+//     integer alpha = 255
+//     integer alpha_increment = - 5
+//     real height = 100
+//     real height_increment = 3
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .scale = .scale + .scale_increment
+//         set .height = .height + .height_increment
+//         set .alpha = .alpha + .alpha_increment
+//         set .x = GetPPX(.x, .speed, .a)
+//         set .y = GetPPY(.y, .speed, .a)
+//         call SetUnitX(.u, .x)
+//         call SetUnitY(.u, .y)
+//         call SetUnitScale(.u, .scale, .scale, .scale)
+//         call SetUnitFlyHeight(.u, .height, 0)
+//         call SetUnitVertexColor(.u, 255, 255, 255, .alpha)
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .a = GetUnitFacing(.caster)
+//         set .x = GetPPX(GetUnitX(.caster), - 80, .a)
+//         set .y = GetPPY(GetUnitY(.caster), - 80, .a)
+//         call PauseUnit(.u, true)
+//         //
+//         // set vh.caster = caster 
+//         // set vh.u = CreateUnit(GetOwningPlayer(.caster), 'n000', .x, .y, .a)
+//         // set vh.alpha = 200
+//         // set vh.height = GetUnitDefaultFlyHeight(.u) + 100
+//         // set vh.height_increment = 3
+//         // set vh.speed = - 5
+//         // set vh.time = 16
+//         call UnitAddAbility(.u, 'Avul')
+//         call UnitAddAbility(.u, 'Aloc')
+//         call UnitAddAbility(.u, 'Arav')
+//         call UnitRemoveAbility(.u, 'Arav')
+//         call SetUnitFacing(.u, .a)
+  
+
+//         call SetUnitVertexColor(.u, 255, 255, 255, .alpha)
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
 
 
-    //=====================FirePierce========================================== 
-    private static method FirePierceUpdate takes nothing returns nothing 
-        local thistype this = runtime.get() 
-        local timer t = GetExpiredTimer() 
-        local group g = null 
-        local unit e = null 
-        set.x = Math.ppx(.x,.speed,.a) 
-        set.y = Math.ppy(.y,.speed,.a) 
-        call Eff.angle(.missle,.a) 
-        call Eff.pos(.missle,.x,.y, Math.pz(.x,.y) +.z) 
+// struct BezierMissile extends SKILL
+//     method spell_now takes nothing returns nothing 
+//         // set mss.missle = AddSpecialEffect(.missle_path, GetUnitX(.caster), GetUnitY(.caster))
+//         // set mss.target = .target
+//         // set mss.t = 0.0
+//         // set mss.speed = 0.05
+//         // set mss.DMG_TYPE = DOC
+//         // set mss.dmg = .dmg
+//         // set mss.is_lv20 = .is_lv20
+//         // set mss.endX = GetUnitX(.target)
+//         // set mss.endY = GetUnitY(.target)
+//         // set mss.endZ = GetUnitFlyHeight(.target)
+//         // set mss.startX = GetPPX(GetUnitX(.caster), distance, angle)
+//         // set mss.startY = GetPPY(GetUnitY(.caster), distance, angle)
+//         // set mss.startZ = GetPZ( GetUnitX(.caster), GetUnitY(.caster))
+//         // set mss.midX = ((mss.startX + mss.endX) / 2.0 ) + GetRandomReal(- 200, 200)
+//         // set mss.midY = ((mss.startY + mss.endY) / 2.0 ) + GetRandomReal(- 200, 200)
+//         // set mss.midZ = GetRandomReal(200, 400)
+//         // set mss.caster = .caster
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod
+//     private static method move takes nothing returns nothing
+//         local timer t = GetExpiredTimer()
+//         local thistype this = runtime.get() 
+//         local real u = this.t
+//         local real v = 1.0 - u
+//         // Tính toán vị trí mới theo phương trình Bezier
+//         local real x = v * v * this.startX + 2 * v * u * this.midX + u * u * this.endX
+//         local real y = v * v * this.startY + 2 * v * u * this.midY + u * u * this.endY
+//         local real z = v * v * this.startZ + 2 * v * u * this.midZ + u * u * this.endZ
+//         // call BJDebugMsg(R2S(.t))
 
-        set g = CreateGroup() 
-        call Group.enum(g,.x,.y,.aoe) 
-        loop 
-            set e = FirstOfGroup(g) 
-            exitwhen e == null 
-            if not IsUnitInGroup(e,.g) and.FilterUnit(e,.caster) and e !=.caster then 
-                call Group.add(e,.g) 
-                call UnitDamageTargetBJ(.caster, e,.dmg,.ATK_TYPE,.DMG_TYPE) 
-                call Buff.effect(.caster, e,.buff_id,.x,.y,.buff_lv,.buff_dur) 
-            endif 
-            call Group.remove(e, g) 
-        endloop 
-        call Group.release(g) 
-        set e = null 
+//         // Di chuyển hiệu ứng
+//         call BlzSetSpecialEffectPosition(this.missle, x, y, z)
+//         call ex.angle(this.missle, GetAB(x, y, GetUnitX(.target), GetUnitY(.target)))
+//         // Tăng giá trị tham số
+//         set this.t = (this.t + this.speed) 
+//         // call BJDebugMsg(R2S(.t))
 
-        set.time =.time - 1 
-        if.time <= 0 or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 then 
-            call Group.release(.g) 
-            call DestroyEffect(.missle) 
-            call runtime.endx(t) // End the timer                                                                                                                                                                          
-            call.destroy() // Destroy the instance                                      
-        endif 
-    endmethod 
-    method FirePierce takes nothing returns boolean 
-        // local thistype this = thistype.create()                  
-        set.missle = Eff.new(.missle_path,.x,.y, Math.pz(.x,.y) +.z) 
-        call Eff.size(.missle,.missle_size) 
-        call Eff.angle(.missle,.a) 
-        set.g = CreateGroup() 
-        if ENV_DEV then 
-            call PLAYER.systemchat(Player(0), "[SKILL] Fire Touch") 
-            call PLAYER.systemchat(Player(0), missle_path) 
-        endif 
-        call runtime.new(this, P32, true, function thistype.FirePierceUpdate) 
-        return false 
-    endmethod 
-    //=================================================================================== 
+//         if this.t >= 1.0 then
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//             call DestroyEffect(this.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance      
+//         endif
+//     endmethod
+// endstruct
 
-endstruct
+
+
+// struct RotatingBullet extends SKILL
+//     real rotationSpeed   // Tốc độ quay
+//     real radius
+
+//     // Khởi tạo một viên đạn
+//     method spell_now takes nothing returns nothing
+//         local real x = GetUnitX(caster)
+//         local real y = GetUnitY(caster)
+
+//         // Thiết lập giá trị
+//         // set this.caster = caster
+//         // set this.a = angle
+//         // set this.rotationSpeed = 360
+//         // set this.aoe = 600
+//         // set this.dmg = DAMAGE
+//         // set this.time = 32
+
+//         // Tạo hiệu ứng
+//         set this.missle = AddSpecialEffect(.missle_path, x, y)
+
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod
+//     // Cập nhật vị trí và xử lý va chạm
+//     private static method move takes nothing returns nothing
+//         local timer t = GetExpiredTimer()
+//         local thistype this = runtime.get() 
+//         local real casterX = GetUnitX(this.caster)
+//         local real casterY = GetUnitY(this.caster)
+//         local real newX
+//         local real newY
+//         local group g = null 
+//         local unit e = null
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         // Cập nhật góc và tính toán vị trí mới
+//         set this.a = this.a + this.rotationSpeed * P32
+//         if this.a >= 360 then
+//             set this.a = this.a - 360
+//         endif
+
+//         set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+//         set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+
+//         // Cập nhật vị trí hiệu ứng
+//         call ex.move( .missle, newX, newY, GetPZ( newX, newY) + .z) 
+//         call ex.angle(.missle, .a + 90)
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, newX, newY, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+//         set .time = .time - 1 
+ 
+//         if.time <= 0  or .is_touch then 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod
+// endstruct
+
+
+// struct Missile_Rain2 extends SKILL
+//     real targetX
+//     real targetY
+//     real currentX
+//     real currentY
+//     real height
+//     real angleYaw   // Góc xoay ngang (roll)
+//     real anglePitch // Góc nghiêng (pitch)
+//     real distance
+//     real progress
+//     string nova_path = ""
+//     real h_start = 0.00
+//     real h_end = 0.00
+//     method spell_now takes nothing returns nothing
+//         // set .targetX = targetX
+//         // set .targetY = targetY
+//         // set .caster = caster
+//         // set .speed = 600
+//         // set .dmg = 20
+//         // set .DMG_TYPE = HOA
+//         // set .height = 400.00
+//         // set .missle_path = "Abilities\\Weapons\\RedDragonBreath\\RedDragonMissile.mdl"
+//         // set .aoe = 200
+//         // set .nova_path = "Abilities\\Spells\\Other\\Incinerate\\FireLordDeathExplode.mdl" 
+//         // set .h_start = 400
+//         // set .h_end = 0
+//         set .startX = GetUnitX(.caster)
+//         set .startY = GetUnitY(.caster)
+
+//         set .currentX = .startX
+//         set .currentY = .startY
+//         set .distance = SquareRoot((targetX - .startX) * (targetX - .startX) + (targetY - .startY) * (targetY - .startY))
+//         set .angleYaw = Atan2(targetY - .startY, targetX - .startX)
+//         set .progress = 0.0
+//         set .missle = AddSpecialEffect(.missle_path, .startX, .startY)
+//         call runtime.new(this, P32, true, function thistype.move) 
+
+//     endmethod
+
+//     private static method move takes nothing returns nothing
+//         local thistype this = runtime.get() 
+//         local real speed = .speed * P32
+//         local real dz
+//         local unit e = null 
+//         local group g = null
+//         if IsUnitDead( .caster)   then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         // Tăng tiến độ và vị trí
+//         set .t = .t + speed / .distance
+//         set .currentX = .startX + (.targetX - .startX) * .t
+//         set .currentY = .startY + (.targetY - .startY) * .t
+//         set .height = .h_start + (.h_end - .h_start) * .t
+
+//         // Tính góc pitch
+//         set dz = .height - GetPZ(.currentX, .currentY)  // Độ chênh lệch chiều cao
+//         set .anglePitch = Atan2(dz, speed * P32)
+
+//         // Di chuyển và xoay hiệu ứng
+//         call ex.move(.missle, .currentX, .currentY, .height)
+//         call ex.pitch(.missle, .anglePitch)
+//         call ex.roll(.missle, .angleYaw)
+
+//         // Kiểm tra va chạm
+//         if .t >= 1.0 then
+//             call ex.nova(.nova_path, .currentX, .currentY)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .currentX, .currentY, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null )
+//                 if .FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance    
+//         endif
+//     endmethod
+
+// endstruct
+
+
+// struct Missle_Bouncing extends SKILL 
+//     integer cliff = 0
+//     private static method move takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         local real x = 0 
+//         local real y = 0 
+//         local boolean b = false 
+//         if IsUnitDead( .caster)   then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set x = GetPPX(.x, .speed, .a) 
+//         set y = GetPPY(.y, .speed, .a) 
+//         if IsTerrainWalkable(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
+//             set .cliff = GetTerrainCliffLevel(x, y)
+//             set b = true 
+//         else 
+//             set.a =.a + 180 
+//         endif 
+
+//         if b then 
+//             set.x = x 
+//             set.y = y 
+//             call ex.angle(.missle, .a) 
+//             call ex.move(.missle, .x, .y, GetPZ(.x, .y) +.z) 
+//         endif 
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen (e == null or .is_touch)
+//             if .FilterUnit(.caster, e) and not .is_touch then 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 set .is_touch = true
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+
+//         set.time =.time - 1 
+//         if.time <= 0 or .is_touch then 
+//             call DestroyEffect(.missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns nothing 
+//         // set mb = Missle_Bouncing.create()
+//         // set mb.time = 32*6 
+//         // set mb.caster = caster
+//         // call mb.setxyz(x,y,z)
+//         // set mb.a = GetAB(GetUnitX(caster),GetUnitY(caster),xt,yt)
+//         // set mb.DMG_TYPE = LOI 
+//         // set mb.dmg = 20 
+//         // set mb.aoe = 50 
+//         // set mb.speed = 15 
+//         // set mb.missle_path = "Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl"
+//         // set mb.missle_size = 0.75
+//         // set mb.cliff = GetTerrainCliffLevel(.x, .y) 
+//         // call mb.spell_now()
+
+//         set.missle = ex.new(.missle_path, .x, .y, GetPZ(.x, .y) +.z) 
+//         call ex.size(.missle, .missle_size) 
+//         call ex.angle(.missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod 
+// endstruct
+
+// // struct Missle_Volley_Touch extends SKILL 
+// //     private static method VolleyTouchUpdate takes nothing returns nothing 
+// //         local thistype this = getRT() 
+// //         local group g 
+// //         local unit e 
+// //         local real r = 0 
+// //         local real r2 = 0 
+
+// //         set r =.a + 30 * Cos(.i * bj_PI / 20) 
+// //         set r2 =.a + 30 * Sin(.i * bj_PI / 20) 
+// //         // set.speed = ((.d / (25.00 + 15)) + ((15.00 / (800 + 50)) *.d))                                                                                                                                                                                                                                                        
+// //         set.x = GetPPX(.x, .speed, r) 
+// //         set.y = GetPPY(.y, .speed, r) 
+// //         set.x2 = GetPPX(.x2, .speed, r2) 
+// //         set.y2 = GetPPY(.y2, .speed, r2) 
+// //         call angleEX(.ex, r) 
+// //         call angleEX(.ex2, r2) 
+// //         call setEX(.ex, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call setEX(.ex2, .x2, .y2, GetPZ(.x2, .y2) +.z) 
+
+// //         set g = CreateGroup() 
+// //         call groups.enum(g, .x, .y, .aoe) 
+// //         loop 
+// //             set e = FirstOfGroup(g) 
+// //             exitwhen e == null 
+// //             if not IsUnitDead(e) and IsUnitEnemy(e, GetOwningPlayer(.caster)) and not.is_touch and BlzIsUnitInvulnerable(e) == false then 
+// //                 set.is_touch = true 
+// //                 call UnitDamageTargetBJ(.caster, e, .dmg, .ATK_TYPE, .DAMAGE_TYPE) 
+// //                 call EFFECT.GetEffect(.time, .caster, e, .eff, .x, .y, 0) 
+// //             endif 
+// //             call groups.remove(e, g) 
+// //         endloop 
+// //         call groups.release(g) 
+// //         set e = null 
+
+// //         set g = CreateGroup() 
+// //         call groups.enum(g, .x2, .y2, .aoe) 
+// //         loop 
+// //             set e = FirstOfGroup(g) 
+// //             exitwhen e == null 
+// //             if not IsUnitDead(e) and IsUnitEnemy(e, GetOwningPlayer(.caster)) and not.is_touch2 and BlzIsUnitInvulnerable(e) == false then 
+// //                 set.is_touch2 = true 
+// //                 call UnitDamageTargetBJ(.caster, e, .dmg, .ATK_TYPE, .DAMAGE_TYPE) 
+// //                 call EFFECT.GetEffect(.time, .caster, e, .eff, .x2, .y2, 0) 
+// //             endif 
+// //             call groups.remove(e, g) 
+// //         endloop 
+// //         call groups.release(g) 
+// //         set e = null 
+
+// //         set.t2 =.t2 + 1 
+// //         // set this.t = R2I(.d /.speed) * 4                                                                                                                                                                                                                                                          
+ 
+// //         set.i =.i - 1 
+// //         if.i <= 0 or(.is_touch and.is_touch2) or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 then 
+// //             call DestroyEffect(.ex) 
+// //             call DestroyEffect(.ex2) 
+// //             call breakRT() 
+// //             call this.destroy() 
+// //         endif 
+// //     endmethod 
+// //     public static method VolleyTouch takes unit caster, unit target, real x, real y, real z, real a, integer i, string path, real SizeMissleEff, real dmg, integer Effect, real time, damagetype dmgtype, attacktype atktype, real aoe, real speed returns boolean 
+// //         local thistype this = thistype.create() 
+// //         set.caster = caster 
+// //         set.x = x 
+// //         set.y = y 
+// //         set.x2 = x 
+// //         set.y2 = y 
+// //         set.z = z 
+// //         set.a = a 
+// //         set.d = GetDBU(caster, target) 
+// //         set.t2 = 0 
+// //         set.ex = newEX(path, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call sizeEX(.ex, SizeMissleEff) 
+// //         call angleEX(.ex, a) 
+// //         set.ex2 = newEX(path, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call sizeEX(.ex2, SizeMissleEff) 
+// //         call angleEX(.ex2, a) 
+// //         set.aoe = aoe 
+// //         set.dmg = dmg 
+// //         set.eff = eff 
+// //         set.DAMAGE_TYPE = dmgtype 
+// //         set.ATK_TYPE = atktype 
+// //         set.time = time 
+// //         set.speed = speed 
+// //         set.is_touch = false 
+// //         set.is_touch2 = false                                                                                                                                                                                                                                                   
+// //         set.i = i 
+// //         call addRT(this, P32, true, function thistype.VolleyTouchUpdate) 
+// //         return false 
+// //     endmethod 
+// // endstruct
+
+
+// struct Lightning_Link_DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) or IsUnitDead( .target)   then // Unit chết thì ko làm gì
+//             call DestroyLightningBJ( .light )
+//             call DestroyLightningBJ( .light2 )
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         call MoveLightningEx(.light, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         call MoveLightningEx(.light2, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e)  then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call DestroyLightningBJ( .light )
+//             call DestroyLightningBJ( .light2 )
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         //set light.caster = caster 
+//         //set light.target = target 
+//         //set light.light_name = CLPB 
+//         //set light.light_name2 = CLSB 
+//         //set light.z = 120
+//         //set light.tick = 16
+//         //set light.time = 32*3
+        
+//         //Chain Lighning Primary: CLPB
+//         //Chain Lighning Secondary: CLSB
+//         //Fork lightning: FORK
+//         //Finger Of Death: AFOD
+        
+//         set .x = GetUnitX(.caster)
+//         set .y = GetUnitY(.caster)
+//         set .xt = GetUnitX(.target)
+//         set .yt = GetUnitY(.target)
+//         set .light = AddLightningEx(.light_name, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         set .light2 = AddLightningEx(.light_name2, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         // call SetLightningColorBJ( GetLastCreatedLightningBJ(), 1.00, 1.00, 1.00, 1.00 )
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+
 
 //--- Content from folder: ./4-Event/1 - Unit - BeginConstruction.j ---
 struct EV_BEGIN_STRUCTION 
@@ -2307,8 +3393,8 @@ struct EV_TARGET_ORDER
         if i != null then 
             if orderid >= 852008 and orderid <= 852013 then 
                 if ENV_DEV then 
-                    call BJDebugMsg(I2S(GetIssuedOrderId())) 
-                    call BJDebugMsg(GetItemName(i)) 
+                    // call BJDebugMsg(I2S(GetIssuedOrderId())) 
+                    // call BJDebugMsg(GetItemName(i)) 
                 endif 
             endif 
         endif 
@@ -2444,18 +3530,6 @@ endstruct
 
 //--- Content from folder: ./4-Event/5b - Unit - StartEffectSpell.j ---
 struct EV_START_SPELL_EFFECT 
-    static method getReduceCD takes unit u returns real 
-        return 0.50//giam 50%
-    endmethod 
-
-    static method isExclude takes unit u returns boolean 
-        if Unit.haveabi(u, 'Z000') then //loai tru Z000
-            return true 
-        endif 
-        return false
-    endmethod 
-
-    static constant real MAX_GIAM_CD = 0.50//toi da giam 90%
     static method f_Checking takes nothing returns boolean 
         local unit caster = GetTriggerUnit() 
         local integer idc = GetUnitTypeId(caster) 
@@ -2471,80 +3545,9 @@ struct EV_START_SPELL_EFFECT
         local real yc = GetUnitY(caster) 
         local real xt = GetUnitX(target) //Position X of target unit                   
         local real yt = GetUnitY(target) //Position T of target unit                   
-        local SKILL_MISSLE Missle 
         local integer n = 1 
-        local real timed = BlzGetAbilityCooldown(abicode, Unit.abilv(caster, abicode) - 1)
-        local real max_CD = .getReduceCD(caster)
-        if max_CD > MAX_GIAM_CD then
-            set max_CD = MAX_GIAM_CD
-        endif
-        if not isExclude(caster) then 
-            if(timed > 1.00) then
-                call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, Unit.abilv(caster, abicode) - 1, (timed * (1.00 - max_CD)     ))
-            endif
-        endif
-        if abicode == 'A000' then 
-            set n = 1 
-            loop 
-                exitwhen n > 5 
-                set Missle = SKILL_MISSLE.create() 
-                set Missle.caster = caster 
-                call Missle.setxyz(xc, yc, 100) 
-                //Angle       
-                set Missle.a = (Math.ab(xc, yc, targetX, targetY) - (3 * 20)) + (n * 20) 
-                //Speed per tick (1 second = speed *32)       
-                set Missle.missle_path = "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl" 
-                set Missle.missle_size = 1.5 
-                set Missle.speed = 15 
-                set Missle.aoe = 50 
-                set Missle.dmg = 35 
-                set Missle.time = 32 * 2 // 32 tick per 1 seconds     
-
-                if GetRandomInt(0, 1) == 0 then 
-                    set Missle.buff_id = Buff.STUN 
-                else 
-                    set Missle.buff_id = Buff.SLOW 
-                endif 
-                set Missle.buff_lv = 1 
-                set Missle.buff_dur = 3 
-
-                set Missle.ATK_TYPE = ATTACK_TYPE_NORMAL 
-                set Missle.DMG_TYPE = DAMAGE_TYPE_FIRE 
-                call Missle.setallow(true, false, true, true, false, true, false) 
-          
-                call Missle.FireTouch() 
-                set n = n + 1 
-            endloop 
-        
-        endif 
-
-        if abicode == 'A004' then //Fire pierce  
-            set Missle = SKILL_MISSLE.create() 
-            set Missle.caster = caster 
-            call Missle.setxyz(xc, yc, 100) 
-            //Angle       
-            set Missle.a = Math.ab(xc, yc, targetX, targetY) 
-            //Speed per tick (1 second = speed *32)       
-            set Missle.missle_path = "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl" 
-            set Missle.missle_size = 2.5 
-            set Missle.speed = 15 
-            set Missle.aoe = 150 
-            set Missle.dmg = 35 
-            set Missle.time = 32 * 2 // 32 tick per 1 seconds     
-            if GetRandomInt(0, 1) == 0 then 
-                set Missle.buff_id = Buff.STUN 
-            else 
-                set Missle.buff_id = Buff.SLOW 
-            endif 
-            set Missle.buff_lv = 1 
-            set Missle.buff_dur = 3 
-
-            set Missle.ATK_TYPE = ATTACK_TYPE_NORMAL 
-            set Missle.DMG_TYPE = DAMAGE_TYPE_FIRE 
-            call Missle.setallow(true, false, true, true, false, true, false) 
-          
-            call Missle.FirePierce() 
-        endif 
+  
+    
         set target = null 
         set caster = null 
         set it = null 
@@ -2670,6 +3673,17 @@ struct REGISTER_EVENT
         call EV_PLAYER_CHAT.f_SetupEvent()
 
         call DestroyTimer(GetExpiredTimer()) 
+    endmethod
+    static method regKey takes oskeytype hotkey, code func returns nothing
+        local trigger t = CreateTrigger( )
+        local integer i = 0
+        loop
+            exitwhen i == MAX_PLAYER - 1
+            call BlzTriggerRegisterPlayerKeyEvent( t, Player(i), hotkey, 0, true )
+            set i = i + 1
+        endloop
+        call TriggerAddAction( t, func )
+        set t = null
     endmethod
     private static method onInit takes nothing returns nothing 
         call TimerStart(CreateTimer(), TIME_SETUP_EVENT, false, function thistype.SetupAllEvent) 
@@ -2885,6 +3899,188 @@ endstruct
 
 
 
+//--- Content from folder: ./5-Features/3-Order.j ---
+struct ORDER 
+    static integer Move = 851986 
+    static integer Almove = 851988 
+    static integer Attack = 851983 
+    static integer Drain = 852487 
+    static integer Target = StringHash("Target") 
+    static method IO takes unit u, integer order returns boolean 
+        return GetUnitCurrentOrder(u) == order // Returns true or false when comparing the input order id value with the current unit's order value                                                                
+    endmethod 
+    static method IsFear takes unit u returns boolean 
+        return not(.IO(u, .Move) or.IO(u, .Almove)) 
+    endmethod 
+    static method IsCrowControl takes unit u returns boolean 
+        // if skill.have(u, 'BEer') or skill.have(u, 'B005') then                                                                
+        //     return true                                                                
+        // endif                                                                
+        return false 
+    endmethod 
+    //IsNotAction is check a unit not action or not do something.                                                                
+    static method IsNotAction takes unit u returns boolean 
+        return not(.IO(u, .Move) or.IO(u, .Almove) or.IO(u, .Attack) or.IO(u, .Drain) or IsUnitPaused(u)) 
+    endmethod 
+    // Order Attack :                                                                
+    //I use a timer to make a process check if the enemy is attacking towards the base or not? If it doesn't do anything or isn't the type of unit that can attack, I'll order it to attack again.                                                                
+    private static method OrderAttack takes nothing returns nothing 
+        local group g = null 
+        local unit e = null 
+        local unit m = null 
+        local integer pos = 0 
+        local integer way = 0 
+        local integer id = 0 
+        // I need to group the enemy player's units and check each enemy one by one.                                                                
+        set g = CreateGroup() // Then i create a group                                                                 
+        call GroupEnumUnitsOfPlayer(g, Player(10), null) // GroupEnumUnitsOfPlayer Collect all of player 11 current enemies into group g                                                                
+        //Basically loop is used to iterate within its container, you need exitwhen condition for it to exit. If you use a GUI, its mechanism is in the ForEach function                                                                
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen e == null 
+            if ORDER.IsNotAction(e) then 
+                set m =.GetATarget() 
+                if m != null and GetUnitState(e, UNIT_STATE_LIFE) > 0 and IsUnitType(e, UNIT_TYPE_STRUCTURE) == false and GetPlayerId(GetOwningPlayer(e)) == 10 then 
+                    //IssuePointOrder: unit whichUnit, string order, real x, real y  => Here I order the enemy to attack the TheRevive region, it is near TheBase, so the unit will also attack TheBase.                                                                
+                    call IssuePointOrder(e, "attack", GetUnitX(m), GetUnitY(m)) 
+                    // call IssueTargetOrder(e, "attack", m) 
+                endif 
+                set m = null 
+            endif
+            call GroupRemoveUnit(g, e) // By removing units from the group in the loop, the number of units in the group will gradually decrease, and when unit e == null means when the group is empty, you end the loop you just processed.                                                                
+        endloop 
+        //One action to do when you finish processing groups if you don't use them anymore is groupclear and destroygroup, assign the value unit e = null although sometimes it is not necessary                                                                
+        call GroupClear(g) //                                                                
+        call DestroyGroup(g) 
+        set e = null 
+    endmethod 
+    static method GetATarget takes nothing returns unit 
+        local integer i = 0 
+        local integer x = 1 
+        local unit array u 
+        local unit e = null 
+
+        set x = 0 
+        loop 
+            exitwhen x > MAX_PLAYER - 1 
+            if GAME.Survivor[x] != null and Boo.islive(GAME.Survivor[x]) and not PLAYER.IsDisconect[x] then 
+                set i = i + 1 
+                set u[i] = GAME.Survivor[x] 
+            endif 
+            set x = x + 1 
+        endloop 
+        set e = u[GetRandomInt(1, i)] 
+        // call BJDebugMsg(GetUnitName(e))       
+        set x = 1 
+        loop 
+            exitwhen x > i 
+            set u[x] = null 
+            set x = x + 1 
+        endloop 
+            
+        return e 
+    endmethod 
+    private static method onInit takes nothing returns nothing 
+        call TimerStart(CreateTimer(), (0.03125 * 4), true, function thistype.OrderAttack) // if true it become every 2 second call OrderAttack one time                                                                
+    endmethod 
+endstruct 
+    
+
+//--- Content from folder: ./5-Features/4-Wave.j ---
+struct WAVE 
+    static integer lv = 0 
+    static integer array utype 
+    static integer array utype2 
+    static integer array btype 
+    static integer array spawn 
+    static integer delay = 0 
+    static string array note 
+    
+    static method AlertMsg takes nothing returns nothing 
+        call PLAYER.msgforce(GetPlayersAll(), "Wave " + I2S(.lv), 10) 
+    endmethod 
+    static method CookUnit takes integer id, integer number , real angle returns nothing 
+        local integer n = 0 
+        set n = 1 
+        loop 
+            exitwhen n > number 
+            set bj_unit = CreateUnit(Player(10), id, GetLocationX(bj_loc), GetLocationY(bj_loc), angle) 
+            call QueueUnitAnimation(bj_unit, "birth") 
+            set n = n + 1 
+        endloop 
+    endmethod 
+    static method executed takes nothing returns nothing 
+        local integer n = 1
+        set WAVE.lv = WAVE.lv + 1 
+        if WAVE.lv == 1 then 
+            call PLAYER.msgforce(GetPlayersAll(), "Day 1: Outbreak [Zombie] ", 30) 
+            call MoveLocation(bj_loc, GetRectCenterX(gg_rct_Spawn_Top), GetRectCenterY(gg_rct_Spawn_Top)) 
+            call WAVE.CookUnit(.utype[0], 8, 270)
+            call MoveLocation(bj_loc, GetRectCenterX(gg_rct_Spawn_Bottom), GetRectCenterY(gg_rct_Spawn_Bottom)) 
+            call WAVE.CookUnit(.utype[0], 8, 90)
+
+            call MoveLocation(bj_loc, GetRectCenterX(gg_rct_Spawn_Left), GetRectCenterY(gg_rct_Spawn_Left)) 
+            call WAVE.CookUnit(.utype[0], 8, 180)
+
+            call MoveLocation(bj_loc, GetRectCenterX(gg_rct_Spawn_Right), GetRectCenterY(gg_rct_Spawn_Right)) 
+            call WAVE.CookUnit(.utype[0], 8, 0)
+        endif
+    endmethod
+    
+    private static method onInit takes nothing returns nothing 
+        set.utype[0] = 'n001' //Zombie
+        set.utype[1] = 'n001' 
+        set.utype[2] = 'u000' 
+    endmethod 
+endstruct 
+
+//--- Content from folder: ./5-Features/5-Controller.j ---
+
+
+// struct GAME_CONTROLLER 
+//     static unit looter = null
+//     static boolean b = false
+//     static method is_driving takes unit u returns boolean 
+//         return LoadBoolean(ht, GetHandleId(u), StringHash("IsDrive"))
+//     endmethod
+//     static method attack takes nothing returns nothing 
+//         local player p = GetTriggerPlayer() 
+//         local integer pid = Num.pid(p) 
+//         call Controller.attack(pid) 
+//         // call BJDebugMsg("1")      
+
+//         set p = null 
+//     endmethod 
+
+//     static method lootone takes nothing returns nothing 
+//         local item i = GetEnumItem()
+//         if not .b and Boo.islive(.looter)and GetWidgetLife(i) > 0.405  and UnitAddItem(.looter, i) then
+//             set .b = true
+//         endif
+//         set i = null
+//     endmethod
+//     static method space takes nothing returns nothing 
+//         local player p = GetTriggerPlayer() 
+//         local integer pid = Num.pid(p) 
+//         local rect r = null 
+//         set .looter = GAME.Survivor[pid]
+//         set r = Rect(Unit.x(.looter) - 128, Unit.y(.looter) - 128, Unit.x(.looter) + 128, Unit.y(.looter) + 128 )
+//         set .b = false
+//         call EnumItemsInRect(r, null, function thistype.lootone)
+//         set .looter = null
+//         call RemoveRect(r)
+//         set p = null 
+//     endmethod 
+
+//     static method start takes nothing returns nothing 
+//         call REGISTER_EVENT.regKey(OSKEY_A, function thistype.attack) //hot key                                                                                                                                                                                                                
+//         call REGISTER_EVENT.regKey(OSKEY_SPACE, function thistype.space) //hot key                                                                                                        
+//     endmethod 
+// endstruct 
+
+
+
+
 //--- Content from folder: ./6-Timers/1-Interval.j ---
 struct Interval 
     static integer times = 0 
@@ -2905,6 +4101,26 @@ struct Interval
         call TimerStart(CreateTimer(), TIME_INTERVAL, true, function thistype.tick) 
     endmethod 
 endstruct
+struct IntervalP32 
+    static real time = 0                           
+    static method tick takes nothing returns nothing 
+        call EXAMPLE_LEADERBOARD.LB.setvalue(Player(11), PLAYER.food(10)) 
+        call EXAMPLE_LEADERBOARD.LB.setvalue(Player(10), WAVE.lv) 
+        // call WAVE.spawnx()   
+        call BJDebugMsg(R2S(.time))
+        if PLAYER.food(10) == 0 and .time == 0 then 
+            set .time = 3.20 * 15
+            call WAVE.executed()
+            
+        endif   
+        if .time > 0 then 
+            set .time = .time -1
+        endif        
+    endmethod 
+    static method start takes nothing returns nothing 
+        call TimerStart(CreateTimer(), 0.3125, true, function thistype.tick) 
+    endmethod 
+endstruct
 
 //--- Content from individual file: ./GAME.j ---
 
@@ -2912,16 +4128,22 @@ endstruct
 struct GAME 
     static boolean IsSinglePlay = false 
     static integer CountPlayer = 0 
+    static unit array Survivor 
     static Randompool pool_item
     static Randompool pool_item_rare
     static Multiboard MB 
+    static real centerX = - 21800
+    static real centerY =  - 22500
     private static method GameStart takes nothing returns nothing 
         local framehandle test1 = null 
 
-
+        call EXAMPLE_LEADERBOARD.start()
+        set IntervalP32.time = 3.20 * 15
+        call COUNTDOWN_TIMER.start_timer(15)
+        call IntervalP32.start()
         // call PauseGame(false)               
-        // call CinematicModeBJ(false, GetPlayersAll()) 
-        // call DisplayCineFilter(false) 
+        call CinematicModeBJ(false, GetPlayersAll()) 
+        call DisplayCineFilter(false) 
         if ENV_DEV then 
             call DisplayTextToForce(GetPlayersAll(), "Game Start ...") 
         endif 
@@ -2957,7 +4179,8 @@ struct GAME
         call.pool_item.new_value('I00L', 30, 0, 1)  //Tome of Level [2]
         //Rare Item
         call.pool_item.add_rare(.pool_item)
-  
+
+      
 
 
    
@@ -2976,6 +4199,8 @@ struct GAME
             exitwhen n > (MAX_PLAYER - 1) 
             if PLAYER.IsPlayerOnline(Player(n)) then 
                 set PLAYER.IsDisconect[n] = false 
+                set GAME.Survivor[n] = CreateUnit(Player(n), 'H000', Math.ppx(.centerX, 400, 30 * n), Math.ppy(.centerY, 400, 30 * n), 270)
+                call Bonus.apply( GAME.Survivor[n])
                 set GAME.CountPlayer = GAME.CountPlayer + 1 
             else 
                 set PLAYER.IsDisconect[n] = true 
@@ -2988,20 +4213,20 @@ struct GAME
     private static method PreloadMap takes nothing returns nothing 
 
         // call PauseGame(true)               
-        // call CinematicModeBJ(true, GetPlayersAll()) 
+        call CinematicModeBJ(true, GetPlayersAll()) 
 
-        // call AbortCinematicFadeBJ() 
-        // call SetCineFilterTexture("ReplaceableTextures\\CameraMasks\\Black_mask.blp") 
-        // call SetCineFilterBlendMode(BLEND_MODE_BLEND) 
-        // call SetCineFilterTexMapFlags(TEXMAP_FLAG_NONE) 
-        // call SetCineFilterStartUV(0, 0, 1, 1) 
-        // call SetCineFilterEndUV(0, 0, 1, 1) 
-        // call SetCineFilterStartColor(255, 255, 255, 255) 
-        // call SetCineFilterEndColor(255, 255, 255, 255) 
-        // call SetCineFilterDuration(GAME_START_TIME - GAME_PRELOAD_TIME) 
-        // call DisplayCineFilter(true) 
+        call AbortCinematicFadeBJ() 
+        call SetCineFilterTexture("ReplaceableTextures\\CameraMasks\\Black_mask.blp") 
+        call SetCineFilterBlendMode(BLEND_MODE_BLEND) 
+        call SetCineFilterTexMapFlags(TEXMAP_FLAG_NONE) 
+        call SetCineFilterStartUV(0, 0, 1, 1) 
+        call SetCineFilterEndUV(0, 0, 1, 1) 
+        call SetCineFilterStartColor(255, 255, 255, 255) 
+        call SetCineFilterEndColor(255, 255, 255, 255) 
+        call SetCineFilterDuration(GAME_START_TIME - GAME_PRELOAD_TIME) 
+        call DisplayCineFilter(true) 
     
-        // call PanCameraToTimed(0, 0, 0) 
+        call PanCameraToTimed(- 21800, - 22500, 0) 
         if ENV_DEV then 
             call DisplayTextToForce(GetPlayersAll(), "Preload ...") 
         endif 
@@ -3027,286 +4252,51 @@ endstruct
 
 //--- Content from individual file: ./EXAMPLE.j ---
 // COUNTDOWN TIMER EXAMPLE  If not use then delete this                                                                                                                            
-// struct COUNTDOWN_TIMER_EXAMPLE 
-//     static CountdownTimer StartEvent 
-//     static integer TimesStartEvent = 0 
-//     static method start takes nothing returns nothing 
-//         set COUNTDOWN_TIMER_EXAMPLE.StartEvent = CountdownTimer.create() 
-//         call COUNTDOWN_TIMER_EXAMPLE.StartEvent.newdialog("10 secs event", 10, true, function thistype.tensec) 
-//     endmethod 
-//     private static method tensec takes nothing returns nothing 
-//         set COUNTDOWN_TIMER_EXAMPLE.TimesStartEvent = COUNTDOWN_TIMER_EXAMPLE.TimesStartEvent + 1 
-//         if ENV_DEV then 
-//             call BJDebugMsg("Times:" + I2S(COUNTDOWN_TIMER_EXAMPLE.TimesStartEvent)) 
-//         endif 
-//         if COUNTDOWN_TIMER_EXAMPLE.TimesStartEvent == 1 then 
-//             call COUNTDOWN_TIMER_EXAMPLE.StartEvent.title("Last time") 
-//             call COUNTDOWN_TIMER_EXAMPLE.StartEvent.titlecolor(255, 0, 0, 255) 
-//             call COUNTDOWN_TIMER_EXAMPLE.StartEvent.timercolor(255, 0, 0, 255) 
-//         endif 
-//         if COUNTDOWN_TIMER_EXAMPLE.TimesStartEvent == 2 then 
-//             call COUNTDOWN_TIMER_EXAMPLE.StartEvent.destroytd() 
-//             call COUNTDOWN_TIMER_EXAMPLE.StartEvent.destroy() 
-//         endif 
-//     endmethod 
-// endstruct 
-
-// struct MULTILBOARD_EXAMPLE 
-//     static Multiboard MB 
-//     static integer max_row = 1 
-//     static string array hero_path 
-//     static method setindex takes integer pid returns nothing 
-//         call SaveInteger(ht, 0x63746264, GetHandleId(Player(pid)),.max_row) 
-//         if ENV_DEV then 
-//             call BJDebugMsg("Multiboard[]" + I2S(pid) + "[]" + I2S(.max_row)) 
-//         endif 
-//     endmethod 
-//     static method I2Row takes integer pid returns integer 
-//         local integer r = LoadInteger(ht, 0x63746264, GetHandleId(Player(pid))) 
-//         return r 
-//     endmethod 
-//     static method start takes nothing returns nothing 
-//         set MULTILBOARD_EXAMPLE.MB = Multiboard.create() 
-//         //                                                                                                             
-//         set bj_int = MAX_PLAYER 
-//         loop 
-//             set bj_int = bj_int - 1 
-//             set.hero_path[bj_int - 1] = "ReplaceableTextures\\CommandButtons\\BTNSelectHeroOn.blp" 
-//             if(GetPlayerController(Player(bj_int - 1)) == MAP_CONTROL_USER) and(GetPlayerSlotState(Player(bj_int - 1)) == PLAYER_SLOT_STATE_PLAYING) then 
-//                 call.setindex(.max_row) 
-//                 set.max_row =.max_row + 1 
-//             endif 
-//             exitwhen bj_int == 1 
-//         endloop 
-//         call MULTILBOARD_EXAMPLE.MB.new(.max_row - 1, 4, "Multiboard") 
-
-//         call.setup() 
-//         call MULTILBOARD_EXAMPLE.MB.minimize(false) 
-//     endmethod 
-//     static method setup takes nothing returns nothing 
-//         set bj_int = MAX_PLAYER - 1 
-//         loop 
-//             set bj_int = bj_int - 1 
-//             if I2Row(bj_int + 1) > 0 then 
-//                 call MULTILBOARD_EXAMPLE.MB.setstyle(1,.I2Row(bj_int + 1), true, true) 
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(1,.I2Row(bj_int + 1), GetPlayerName(Player(bj_int))) 
-//                 call MULTILBOARD_EXAMPLE.MB.seticon(1,.I2Row(bj_int + 1),.hero_path[bj_int]) 
-//                 call MULTILBOARD_EXAMPLE.MB.setwidth(1,.I2Row(bj_int + 1), 8) 
-                
-//                 call MULTILBOARD_EXAMPLE.MB.setstyle(2,.I2Row(bj_int + 1), true, true) 
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(2,.I2Row(bj_int + 1), I2S(PLAYER.gold(bj_int))) 
-//                 call MULTILBOARD_EXAMPLE.MB.seticon(2,.I2Row(bj_int + 1), "UI\\Feedback\\Resources\\ResourceGold.blp") 
-//                 call MULTILBOARD_EXAMPLE.MB.setwidth(2,.I2Row(bj_int + 1), 8) 
-            
-//                 call MULTILBOARD_EXAMPLE.MB.setstyle(3,.I2Row(bj_int + 1), true, true) 
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(3,.I2Row(bj_int + 1), I2S(PLAYER.lumber(bj_int))) 
-//                 call MULTILBOARD_EXAMPLE.MB.seticon(3,.I2Row(bj_int + 1), "UI\\Feedback\\Resources\\ResourceLumber.blp") 
-//                 call MULTILBOARD_EXAMPLE.MB.setwidth(3,.I2Row(bj_int + 1), 8) 
-
-//                 call MULTILBOARD_EXAMPLE.MB.setstyle(4,.I2Row(bj_int + 1), true, true) 
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(4,.I2Row(bj_int + 1), I2S(PLAYER.food(bj_int)) + "/" + I2S(PLAYER.foodcap(bj_int))) 
-//                 call MULTILBOARD_EXAMPLE.MB.seticon(4,.I2Row(bj_int + 1), "UI\\Feedback\\Resources\\ResourceSupply.blp") 
-//                 call MULTILBOARD_EXAMPLE.MB.setwidth(4,.I2Row(bj_int + 1), 8) 
-//             endif 
-//             exitwhen bj_int == 0 
-//         endloop 
-//     endmethod 
-//     static method update takes nothing returns nothing 
-//         set bj_int = 0 
-//         loop 
-//             exitwhen bj_int > MAX_PLAYER - 1 
-//             if I2Row(bj_int + 1) > 0 then 
-//                 // call MULTILBOARD_EXAMPLE.MB.setvalue(1,.I2Row(bj_int), GetPlayerName(Player(bj_int)))                                                                               
-//                 call MULTILBOARD_EXAMPLE.MB.seticon(1,.I2Row(bj_int + 1),.hero_path[bj_int]) 
-                
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(2,.I2Row(bj_int + 1), I2S(PLAYER.gold(bj_int))) 
-            
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(3,.I2Row(bj_int + 1), I2S(PLAYER.lumber(bj_int))) 
-
-//                 call MULTILBOARD_EXAMPLE.MB.setvalue(4,.I2Row(bj_int + 1), I2S(PLAYER.food(bj_int)) + "/" + I2S(PLAYER.foodcap(bj_int))) 
-//             endif 
-//             set bj_int = bj_int + 1 
-//         endloop 
-//     endmethod 
-// endstruct 
+struct COUNTDOWN_TIMER
+    static CountdownTimer ev 
+    static method start_timer takes real time returns nothing 
+        set COUNTDOWN_TIMER.ev = CountdownTimer.create() 
+        call COUNTDOWN_TIMER.ev.newdialog("Wave is Coming", time, true, function thistype.tensec) 
+        call COUNTDOWN_TIMER.ev.titlecolor(255, 0, 0, 255) 
+        call COUNTDOWN_TIMER.ev.timercolor(255, 0, 0, 255) 
+    endmethod 
+    private static method tensec takes nothing returns nothing 
+        call COUNTDOWN_TIMER.ev.destroytd() 
+        call COUNTDOWN_TIMER.ev.destroy() 
+    endmethod 
+endstruct 
 
 
-// struct QUEST_EXAMPLE 
-//     static Quest Kill_SkeletonQuest 
-//     static Questitem Kill_SkeletonArcher 
-//     static integer archer_id = 'nska' 
-//     static integer archer = 0 
-//     static integer max_archer = 3 
-//     static Questitem Kill_SkeletonWarrior 
-//     static integer warrior_id = 'nskg' 
-//     static integer warrior = 0 
-//     static integer max_warrior = 3 
-//     static method kill_archer takes nothing returns nothing 
-//         local string str = "" 
-//         if.Kill_SkeletonArcher.completed() == false then 
-//             set.archer =.archer + 1 
-//             set.archer = IMinBJ(.archer,.max_archer) 
-//             set str = "Kill Skeleton Archer: " + I2S(.archer) + "/" + I2S(.max_archer) 
-//             call.Kill_SkeletonArcher.desc(str) 
-//             if.archer ==.max_archer then 
-//                 call.Kill_SkeletonArcher.setcompleted(true) 
-//                 call PLAYER.questmsgforce(GetPlayersAll(), str, Questmsg.COMPLETED) 
-//             endif 
-//             call.update() 
-//         endif 
-//     endmethod 
-//     static method kill_warrior takes nothing returns nothing 
-//         local string str = "" 
-//         if.Kill_SkeletonWarrior.completed() == false then 
-//             set.warrior =.warrior + 1 
-//             set.warrior = IMinBJ(.warrior,.max_warrior) 
-//             set str = "Kill Giant Skeleton Warrior: " + I2S(.warrior) + "/" + I2S(.max_warrior) 
-//             call.Kill_SkeletonWarrior.desc(str) 
-//             if.warrior ==.max_warrior then 
-//                 call.Kill_SkeletonWarrior.setcompleted(true) 
-//                 call PLAYER.questmsgforce(GetPlayersAll(), str, Questmsg.COMPLETED) 
-//             endif 
-//             call.update() 
-//         endif 
-//     endmethod 
-//     static method update takes nothing returns nothing 
-//         local string str = "" 
-//         if.Kill_SkeletonQuest != null and.Kill_SkeletonQuest.completed() == false then 
-//             if.Kill_SkeletonArcher.completed() == true and.Kill_SkeletonWarrior.completed() == true then 
-//                 call.Kill_SkeletonQuest.setcompleted(true) 
-//                 call.Kill_SkeletonQuest.desc("[Complete] Deafeat Skeleton in Forest ") 
-//                 call PLAYER.questmsgforce(GetPlayersAll(), "Deafeat Skeleton in Forest", Questmsg.COMPLETED) 
-//             endif 
-//         endif 
-//     endmethod 
-//     static method start takes nothing returns nothing 
-//         local string str = "" 
-//         set.Kill_SkeletonQuest = Quest.create() 
-//         set str = "Deafeat Skeleton in Forest" 
-//         call.Kill_SkeletonQuest.new(Questtype.REQ_DISCOVERED, "Kill Skeleton", str, "ReplaceableTextures\\CommandButtons\\BTNSkeletonWarrior.tga") 
-        
-//         set.Kill_SkeletonArcher = Questitem.create() 
-//         set str = "Kill Skeleton Archer: " + I2S(.archer) + "/" + I2S(.max_archer) 
-//         call.Kill_SkeletonArcher.new(.Kill_SkeletonQuest.q, str) 
+struct EXAMPLE_LEADERBOARD 
+    static Leaderboard LB 
+    static integer array value 
+    static method update takes integer id, integer value returns nothing 
+        call.LB.setvalue(Player(id), value) 
+    endmethod 
+    static method start takes nothing returns nothing 
+        set.LB = Leaderboard.create() 
+        call.LB.new("Ogre Zombie Day v0.1") 
+        set bj_int = 0 
+        loop 
+            exitwhen bj_int > MAX_PLAYER - 1 
+            if not PLAYER.IsDisconect[bj_int] then 
+                call.LB.additem(Player(bj_int), GetPlayerName(Player(bj_int)), 0) 
+                call.LB.style(Player(bj_int), true, true, false) 
+            endif 
+            set bj_int = bj_int + 1 
+        endloop 
+        call.LB.additem(Player(10), "Day:", 0) 
+        call.LB.coloritem(Player(10), 255, 255, 255, 0) 
+        call.LB.colorvalue(Player(10), 255, 255, 255, 0) 
+        call.LB.style(Player(10), true, true, false) 
 
-//         set.Kill_SkeletonWarrior = Questitem.create() 
-//         set str = "Kill Giant Skeleton Warrior: " + I2S(.warrior) + "/" + I2S(.max_warrior) 
-//         call.Kill_SkeletonWarrior.new(.Kill_SkeletonQuest.q, str) 
-//     endmethod 
-// endstruct 
+        call.LB.additem(Player(11), "Current unit count:", 0) 
+        call.LB.coloritem(Player(11), 255, 255, 255, 0) 
+        call.LB.colorvalue(Player(11), 255, 255, 255, 0) 
+        call.LB.style(Player(11), true, true, false) 
 
-// struct ROADLINE_EXAMPLE 
-//     static integer Move = 851986 
-//     static integer Almove = 851988 
-//     static integer Attack = 851983 
-//     static method io takes unit u, integer order returns boolean 
-//         return GetUnitCurrentOrder(u) == order // Returns true or false when comparing the input order id value with the current unit's order value                                                                                                                  
-//     endmethod 
-//     static method IsNotAction takes unit u returns boolean 
-//         return not(.io(u,.Move) or.io(u,.Almove) or.io(u,.Attack)) 
-//     endmethod 
-//     static method summon takes nothing returns nothing 
-//         local integer roll = GetRandomInt(0, 2) 
-//         if roll == 2 then 
-//             set bj_unit = CreateUnit(Player(10), 'hpea', GetRectCenterX(gg_rct_r1), GetRectCenterY(gg_rct_r1), 0) 
-//             call Roadline.register(bj_unit, gg_rct_r1, "road1") 
-//         elseif roll == 1 then 
-//             set bj_unit = CreateUnit(Player(10), 'hpea', GetRectCenterX(gg_rct_r3), GetRectCenterY(gg_rct_r3), 0) 
-//             call Roadline.register(bj_unit, gg_rct_r3, "road2") 
-//         else 
-//             set bj_unit = CreateUnit(Player(10), 'hpea', GetRectCenterX(gg_rct_r4), GetRectCenterY(gg_rct_r4), 0) 
-//             call Roadline.register(bj_unit, gg_rct_r4, "road3") 
-          
-//         endif 
-//         call SetUnitPathing(bj_unit, false) 
-
-//     endmethod 
-//     static method start takes nothing returns nothing 
-//         // new ( your_region_now, your_region_come, your_delay , your_road_name , new_road, teleport?)              
-//         call Roadline.new(gg_rct_r1, gg_rct_r2, 3, "road1", "", false) 
-//         call Roadline.new(gg_rct_r2, gg_rct_r3, 3, "road1", "", false) 
-        
-//         call Roadline.new(gg_rct_r3, gg_rct_r2, 3, "road1", "road2", false) 
-//         //=>                
-//         call Roadline.new(gg_rct_r3, gg_rct_r2, 3, "road2", "", false) 
-//         call Roadline.new(gg_rct_r2, gg_rct_r1, 3, "road2", "road1", false) 
-
-//         call Roadline.new(gg_rct_r4, gg_rct_r5, 3, "road3", "", true) 
-//         call Roadline.new(gg_rct_r5, gg_rct_r4, 3, "road3", "", true) 
-
-//     endmethod 
-//     static method order takes nothing returns nothing 
-//         local unit e = null 
-//         local group g = null 
-//         local integer id = -1 
-//         set g = CreateGroup() 
-//         call Group.enump(g, Player(10)) 
-//         loop 
-//             set e = FirstOfGroup(g) 
-//             exitwhen e == null 
-//             set id = GetHandleId(e) 
-//             if GetUnitState(e, UNIT_STATE_LIFE) > 0 and IsUnitType(e, UNIT_TYPE_STRUCTURE) == false and.IsNotAction(e) then 
-//                 if Roadline.LoadRoad(id) != "" then 
-//                     if Roadline.LoadDelay(id) > 0 then 
-//                         call Roadline.SaveDelay(id, Roadline.LoadDelay(id) -1) 
-//                     else 
-//                         // call BJDebugMsg(R2S(Roadline.LoadX(id)) + " [] " + R2S(Roadline.LoadY(id)))                         
-//                         if Roadline.IsTele(id) then 
-//                             call SetUnitPosition(e, Roadline.LoadX(id), Roadline.LoadY(id)) 
-//                             call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", Roadline.LoadX(id), Roadline.LoadY(id))) 
-//                         else 
-//                             //Change it to "move" or "attack" if attack is target then contact me for more custom                    
-//                             call IssuePointOrder(e, "move", Roadline.LoadX(id), Roadline.LoadY(id)) 
-//                         endif 
-//                     endif 
-//                 endif 
-//             endif 
-//             call Group.remove(e, g) 
-//         endloop 
-//         call Group.release(g) 
-//         set e = null 
-//     endmethod 
-// endstruct 
-
-// struct DIALOGBUTTON_EXAMPLE 
-//     static Dialog SelectDifficult 
-//     static button Normal 
-//     static button Hard 
-//     static button Nightmare 
-//     static method click takes nothing returns nothing 
-//         local button btnclicked = GetClickedButton() 
-//         local dialog d = GetClickedDialog() 
-//         local boolean is_select = false 
-//         if btnclicked ==.Normal then 
-//             call PLAYER.systemchat(Player(0), "You select difficult Normal ") 
-//             set is_select = true 
-//         elseif btnclicked ==.Hard then 
-//             call PLAYER.systemchat(Player(0), "You select difficult Hard ") 
-//             set is_select = true 
-//         elseif btnclicked ==.Nightmare then 
-//             call PLAYER.systemchat(Player(0), "You select difficult Nightmare ") 
-//             set is_select = true 
-//         endif 
-//         if is_select then 
-//             call.SelectDifficult.destroyd() 
-//         endif 
-//         set btnclicked = null 
-//         set d = null 
-//     endmethod 
-//     //Careful, one dialog only use for one player , dont display a dialog for 2 or more than ( 2 player use a dialog instead one dialog per player), it's will make game confuse 
-//     static method start takes nothing returns nothing 
-//         set.SelectDifficult = Dialog.create() 
-//         call.SelectDifficult.title("Select Difficult") 
-//         //https://www.hiveworkshop.com/threads/extended-hotkeys-spacebar-etc.245278/          
-//         //Or here : https://en.wikipedia.org/wiki/List_of_Unicode_characters          
-//         //Find on column Decimal, character is uppercase with hotkey          
-//         set.Normal =.SelectDifficult.addbtn("Normal [A]", 65) 
-//         set.Hard =.SelectDifficult.addbtn("Hard [S]", 83) 
-//         set.Nightmare =.SelectDifficult.addbtn("Nightmare [D]", 68) 
-//         call.SelectDifficult.event(function thistype.click) 
-//         call.SelectDifficult.displayx(true, Player(0)) 
-        
-//     endmethod 
-// endstruct 
-
+        call.LB.setforce(GetPlayersAll(), true) 
+        call.LB.display(true) 
+    endmethod 
+endstruct
 

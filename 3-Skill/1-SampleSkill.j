@@ -1,185 +1,1096 @@
-struct SKILL 
-    unit caster = null 
-    unit target = null 
-    unit u = null 
-    group g = null 
-    damagetype DMG_TYPE = null 
-    attacktype ATK_TYPE = null 
-    integer time = 0 
+// struct SKILL 
+//     unit caster = null 
+//     unit target = null 
+//     unit u = null 
+//     group g = null 
+//     damagetype DMG_TYPE = null 
+//     attacktype ATK_TYPE = null 
+//     integer time = 0 
+//     real increment = 0.00
+//     real speed = 0.00 
+//     real dmg = 0.00 
+//     real aoe = 0.00 
+//     real a = 0.00 
+//     real p = 0.00 
+//     real x = 0.00 
+//     real y = 0.00 
+//     real xt = 0.00 
+//     real yt = 0.00 
+//     real z = 0.00 
+//     real h = 0.00
+//     integer buff_id 
+//     integer buff_lv 
+//     integer buff_dur 
 
-    real speed = 0.00 
-    real dmg = 0.00 
-    real aoe = 0.00 
-    real a = 0.00 
-    real x = 0.00 
-    real y = 0.00 
-    real z = 0.00 
+//     effect missle = null 
+//     string missle_path = "" 
+//     real missle_size = 1.00
+//     real missle_speed = 1.00
+//     boolean is_touch = false 
+//     integer count = 0
 
-    integer buff_id 
-    integer buff_lv 
-    integer buff_dur 
 
-    effect missle = null 
-    string missle_path = "" 
-    real missle_size = 0.00 
-    boolean is_touch = false 
+//     lightning light = null 
+//     string light_name = ""
+//     lightning light2 = null 
+//     string light_name2 = ""
 
-    boolean ALLOW_GROUND = true 
-    boolean ALLOW_FLYING = true 
+//     real t = 0.00 // Giá trị tham số (0.0 -> 1.0)
+//     real startX = 0.00 
+//     real startY = 0.00 
+//     real startZ = 0.00 
+//     real midX = 0.00 
+//     real midY = 0.00 
+//     real midZ = 0.00 
+//     real endX = 0.00  
+//     real endY = 0.00 
+//     real endZ = 0.00 
+//     method setxyz takes real x, real y, real z returns nothing 
+//         set.x = x 
+//         set.y = y 
+//         set.z = z 
+//     endmethod 
+//     method Ally takes unit u , unit e returns boolean 
+//         if not IsUnitDead(e) and IsUnitAlly(e, GetOwningPlayer(u)) and IsUnitHero(e) then 
+//             return true 
+//         endif 
+//         return false
+//     endmethod
+//     method FilterUnit takes unit u, unit e returns boolean 
+//         if not IsUnitDead(e)  and IsUnitEnemy(e, GetOwningPlayer(u)) and BlzIsUnitInvulnerable(e) == false then 
+//             return true 
+//         endif 
+//         return false
+//     endmethod
+// endstruct 
+// struct Missle_Touch extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
 
-    boolean ALLOW_HERO = true 
-    boolean ALLOW_STRUCTURE = true 
-    boolean ALLOW_MECHANICAL = true 
-    boolean ALLOW_ENEMY = true 
-    boolean ALLOW_ALLY = true 
-    boolean ALLOW_MAGIC_IMMUNE = true 
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
 
-    boolean ALLOW_ALIVE = true 
-    method FilterCompare takes boolean is, boolean yes, boolean no returns boolean 
-        return(is and yes) or((not is) and no) 
-    endmethod 
-    method setxyz takes real x, real y, real z returns nothing 
-        set.x = x 
-        set.y = y 
-        set.z = z 
-    endmethod 
-    method setallow takes boolean ALLOW_HERO, boolean ALLOW_STRUCTURE, boolean ALLOW_FLYING, boolean ALLOW_GROUND, boolean ALLOW_MECHANICAL, boolean ALLOW_ALIVE, boolean ALLOW_MAGIC_IMMUNE returns nothing 
-        set.ALLOW_GROUND = ALLOW_GROUND 
-        set.ALLOW_FLYING = ALLOW_FLYING 
-        set.ALLOW_HERO = ALLOW_HERO 
-        set.ALLOW_STRUCTURE = ALLOW_STRUCTURE 
-        set.ALLOW_MECHANICAL = ALLOW_MECHANICAL 
-        set.ALLOW_ENEMY = ALLOW_ENEMY 
-        set.ALLOW_ALLY = ALLOW_ALLY 
-        set.ALLOW_MAGIC_IMMUNE = ALLOW_MAGIC_IMMUNE 
-        set.ALLOW_ALIVE = ALLOW_ALIVE 
-    endmethod 
-    method FilterUnit takes unit u, unit caster returns boolean 
-        if not.FilterCompare(IsUnitAlly(u, GetOwningPlayer(caster)),.ALLOW_ALLY,.ALLOW_ENEMY) then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_HERO) and not.ALLOW_HERO then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_STRUCTURE) and not.ALLOW_STRUCTURE then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_FLYING) and not.ALLOW_FLYING then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_GROUND) and not.ALLOW_GROUND then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_MECHANICAL) and not.ALLOW_MECHANICAL then 
-            return false 
-        endif 
-        if IsUnitType(u, UNIT_TYPE_MAGIC_IMMUNE) and not.ALLOW_MAGIC_IMMUNE then 
-            return false 
-        endif 
-        if GetUnitState(u, UNIT_STATE_LIFE) > 0 and not.ALLOW_ALIVE then 
-            return false 
-        endif 
-        return true 
-    endmethod 
-endstruct 
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         // set mt = Missle_Touch.create()
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Pierce extends SKILL 
+//     string attach = ""
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
 
-struct SKILL_MISSLE extends SKILL 
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null)
+//             if not IsUnitInGroup(e, .g) and.FilterUnit( .caster, e) then 
+//                 call groups.add(e, .g)
+//                 call ex.chest(.attach, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0  then 
+//             call groups.release(.g)
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.g = CreateGroup()
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Find extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  or IsUnitDead(.target) then // Unit chết thì ko làm gì
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .a = GetAB(.x, .y, GetUnitX(.target), GetUnitY(.target))
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) and e ==.target then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect( .missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct Missle_Rain extends SKILL
+//     real gravity = 5.00
+//     string nova_path = "Objects\\Spawnmodels\\NightElf\\NECancelDeath\\NECancelDeath.mdl"
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.z = .z - .gravity
+//         // call BJDebugMsg(R2S(.z))
+//         call BlzSetSpecialEffectZ( .missle, GetPZ( .x, .y) + .z) 
+//         if.z <= 0 then 
+//             call ex.nova( .nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen e == null 
+//                 if.FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call DestroyEffect( .missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance   
+//         endif
+      
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z)
+//         call ex.size( .missle, .missle_size) 
+//         set.p = 180
+//         call ex.pitch( .missle, .p)
+//         call ex.angle( .missle, .a)
+//         call ex.speed( .missle, .missle_speed)
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 Gán u là một unit missle, cho nó di chuyển tới target chỉ định và gây dmg kết thúc
+// struct Missle_Unit_Find extends SKILL 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  or IsUnitDead(.target) then // Unit chết thì ko làm gì
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .a = GetAB(.x, .y, GetUnitX(.target), GetUnitY(.target))
+//         set .speed = .speed + .increment
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call SetUnitFacing(.u, .a)
+//         call SetUnitX(.u, .x)
+//         call SetUnitY(.u, .y)
+//         call SetUnitFlyHeight(.u, GetPZ( .x, .y) + .z, 0)
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) and e ==.target then 
+//                 set.is_touch = true 
+//                 call ex.chest(.missle_path, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call SetUnitPathing(.u, false)
+//         call UnitAddAbility(.u, 'Arav')
+//         call UnitRemoveAbility(.u, 'Arav')
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 Gọi ra 1 cái bẫy tồn tại X giây, khi có kẻ địch trong phạm vi thì phát nổ
+// struct Trap_AoE extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null)
+//             if .FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call ex.chest(.attach_path, e)
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+//         if .is_touch then 
+//             call ex.nova(.nova_path, .x, .y)
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 or.is_touch then 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 AoE DPS : Mỗi X time gọi ra effect và gây dmg aoe | tick: Mỗi x time sẽ gọi , increment : Giảm x time mỗi lần gọi
+// struct AoE_DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e)  then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //🎀 DPS : Mỗi X time gọi ra effect và gây dmg target | tick: Mỗi x time sẽ gọi , increment : Giảm x time mỗi lần gọi
+// struct DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.chest(.attach_path, .target)
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //Gây sát thương đơn lẻ lên target sau X giây
+// struct DE extends SKILL 
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call ex.chest(.attach_path, .target)
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// //🎀 Missle_Nova: Di chuyển missle từ caster tới vị trí chỉ định và gây sát thương sau khi tới vị trí chỉ định
+// struct Missle_Nova extends SKILL 
+//     string nova_path = "Objects\\Spawnmodels\\NightElf\\NECancelDeath\\NECancelDeath.mdl"
+//     string attach_path = ""
+//     real nova_size = 1.00
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+
+//         set.x = GetPPX( .x, .speed, .a) 
+//         set.y = GetPPY( .y, .speed, .a) 
+//         call ex.angle( .missle, .a) 
+//         call ex.move( .missle, .x, .y, GetPZ( .x, .y) + .z) 
+
     
-    //=====================FireTouch========================================== 
-    private static method FireTouchUpdate takes nothing returns nothing 
-        local thistype this = runtime.get() 
-        local timer t = GetExpiredTimer() 
-        local group g = null 
-        local unit e = null 
-        set.x = Math.ppx(.x,.speed,.a) 
-        set.y = Math.ppy(.y,.speed,.a) 
-        call Eff.angle(.missle,.a) 
-        call Eff.pos(.missle,.x,.y, Math.pz(.x,.y) +.z) 
 
-        set g = CreateGroup() 
-        call Group.enum(g,.x,.y,.aoe) 
-        loop 
-            set e = FirstOfGroup(g) 
-            exitwhen e == null 
-            if not.is_touch and.FilterUnit(e,.caster) and e !=.caster then 
-                set.is_touch = true 
-                call UnitDamageTargetBJ(.caster, e,.dmg,.ATK_TYPE,.DMG_TYPE) 
-                call Buff.effect(.caster, e,.buff_id,.x,.y,.buff_lv,.buff_dur) 
-            endif 
-            call Group.remove(e, g) 
-        endloop 
-        call Group.release(g) 
-        set e = null 
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call DestroyEffect(.missle)
 
-        set.time =.time - 1 
-        if.time <= 0 or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 or.is_touch then 
-            call DestroyEffect(.missle) 
-            call runtime.endx(t) // End the timer                                                                                                                                                                          
-            call.destroy() // Destroy the instance                                      
-        endif 
-    endmethod 
-    method FireTouch takes nothing returns boolean 
-        // local thistype this = thistype.create()                  
-        set.missle = Eff.new(.missle_path,.x,.y, Math.pz(.x,.y) +.z) 
-        call Eff.size(.missle,.missle_size) 
-        call Eff.angle(.missle,.a) 
-        if ENV_DEV then 
-            call PLAYER.systemchat(Player(0), "[SKILL] Fire Touch") 
-            call PLAYER.systemchat(Player(0), missle_path) 
-        endif 
-        call runtime.new(this, P32, true, function thistype.FireTouchUpdate) 
-        return false 
-    endmethod 
-    //=================================================================================== 
+//             set bj_lastCreatedEffect = AddSpecialEffect(.nova_path, .x, .y) 
+//             call ex.size( bj_lastCreatedEffect, .nova_size) 
+//             call DestroyEffect(bj_lastCreatedEffect)
+
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null )
+//                 if .FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .time = R2I( (GetDB (.x, .y, .xt, .yt)) / .speed)
+//         set.missle = ex.new( .missle_path, .x, .y, GetPZ( .x, .y) + .z) 
+//         call ex.size( .missle, .missle_size) 
+//         call ex.angle( .missle, .a)  
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 AoE_Cone : Gây sát thương theo hình nón
+// struct AoE_Cone extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     real cone_angle = 35
+//     method AngleBetween takes real a1, real a2 returns real
+//         local real diff = RAbsBJ(a1 - a2)
+//         if diff > 180 then
+//             set diff = 360 - diff
+//         endif
+//         return diff
+//     endmethod
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e) and .AngleBetween(GetAB(GetPPX(.x, - 1 * (.aoe / 2), .a ), GetPPY(.y, - 1 * (.aoe / 2), .a ), GetUnitX(e), GetUnitY(e)), .a) <= .cone_angle / 2 then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
+// //🎀 VFX_Unit_Scale : Tăng hoặc giảm kích cỡ một unit trong time
+// struct VFX_Unit_Scale extends SKILL 
+//     real scale_increment = 0.025
+//     boolean is_reverse = true 
+//     boolean default_end = true
+//     real scale_original = 1.00
+//     real scale = 1.00
+//     integer reverse_tick = 0 // 
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+     
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             if .default_end then 
+//                 call SetUnitScale(.caster, .scale_original, .scale_original, .scale_original)
+//             endif
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         if .time <= .reverse_tick and .is_reverse then 
+//             set .scale = .scale - .scale_increment
+//         else
+//             set .scale = .scale + .scale_increment
+//         endif
+//         call SetUnitScale(.caster, .scale, .scale, .scale)
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             if .default_end then 
+//                 call SetUnitScale(.caster, .scale_original, .scale_original, .scale_original)
+//             endif
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .scale = .scale_original
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+// struct SFX_VoHon extends SKILL 
+//     real scale_increment = 0.025
+//     real scale = 1.00
+//     integer reverse_tick = 0 // 
+//     integer alpha = 255
+//     integer alpha_increment = - 5
+//     real height = 100
+//     real height_increment = 3
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set .scale = .scale + .scale_increment
+//         set .height = .height + .height_increment
+//         set .alpha = .alpha + .alpha_increment
+//         set .x = GetPPX(.x, .speed, .a)
+//         set .y = GetPPY(.y, .speed, .a)
+//         call SetUnitX(.u, .x)
+//         call SetUnitY(.u, .y)
+//         call SetUnitScale(.u, .scale, .scale, .scale)
+//         call SetUnitFlyHeight(.u, .height, 0)
+//         call SetUnitVertexColor(.u, 255, 255, 255, .alpha)
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call RemoveUnit(.u)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         set .a = GetUnitFacing(.caster)
+//         set .x = GetPPX(GetUnitX(.caster), - 80, .a)
+//         set .y = GetPPY(GetUnitY(.caster), - 80, .a)
+//         call PauseUnit(.u, true)
+//         //
+//         // set vh.caster = caster 
+//         // set vh.u = CreateUnit(GetOwningPlayer(.caster), 'n000', .x, .y, .a)
+//         // set vh.alpha = 200
+//         // set vh.height = GetUnitDefaultFlyHeight(.u) + 100
+//         // set vh.height_increment = 3
+//         // set vh.speed = - 5
+//         // set vh.time = 16
+//         call UnitAddAbility(.u, 'Avul')
+//         call UnitAddAbility(.u, 'Aloc')
+//         call UnitAddAbility(.u, 'Arav')
+//         call UnitRemoveAbility(.u, 'Arav')
+//         call SetUnitFacing(.u, .a)
+  
+
+//         call SetUnitVertexColor(.u, 255, 255, 255, .alpha)
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
 
 
-    //=====================FirePierce========================================== 
-    private static method FirePierceUpdate takes nothing returns nothing 
-        local thistype this = runtime.get() 
-        local timer t = GetExpiredTimer() 
-        local group g = null 
-        local unit e = null 
-        set.x = Math.ppx(.x,.speed,.a) 
-        set.y = Math.ppy(.y,.speed,.a) 
-        call Eff.angle(.missle,.a) 
-        call Eff.pos(.missle,.x,.y, Math.pz(.x,.y) +.z) 
+// struct BezierMissile extends SKILL
+//     method spell_now takes nothing returns nothing 
+//         // set mss.missle = AddSpecialEffect(.missle_path, GetUnitX(.caster), GetUnitY(.caster))
+//         // set mss.target = .target
+//         // set mss.t = 0.0
+//         // set mss.speed = 0.05
+//         // set mss.DMG_TYPE = DOC
+//         // set mss.dmg = .dmg
+//         // set mss.is_lv20 = .is_lv20
+//         // set mss.endX = GetUnitX(.target)
+//         // set mss.endY = GetUnitY(.target)
+//         // set mss.endZ = GetUnitFlyHeight(.target)
+//         // set mss.startX = GetPPX(GetUnitX(.caster), distance, angle)
+//         // set mss.startY = GetPPY(GetUnitY(.caster), distance, angle)
+//         // set mss.startZ = GetPZ( GetUnitX(.caster), GetUnitY(.caster))
+//         // set mss.midX = ((mss.startX + mss.endX) / 2.0 ) + GetRandomReal(- 200, 200)
+//         // set mss.midY = ((mss.startY + mss.endY) / 2.0 ) + GetRandomReal(- 200, 200)
+//         // set mss.midZ = GetRandomReal(200, 400)
+//         // set mss.caster = .caster
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod
+//     private static method move takes nothing returns nothing
+//         local timer t = GetExpiredTimer()
+//         local thistype this = runtime.get() 
+//         local real u = this.t
+//         local real v = 1.0 - u
+//         // Tính toán vị trí mới theo phương trình Bezier
+//         local real x = v * v * this.startX + 2 * v * u * this.midX + u * u * this.endX
+//         local real y = v * v * this.startY + 2 * v * u * this.midY + u * u * this.endY
+//         local real z = v * v * this.startZ + 2 * v * u * this.midZ + u * u * this.endZ
+//         // call BJDebugMsg(R2S(.t))
 
-        set g = CreateGroup() 
-        call Group.enum(g,.x,.y,.aoe) 
-        loop 
-            set e = FirstOfGroup(g) 
-            exitwhen e == null 
-            if not IsUnitInGroup(e,.g) and.FilterUnit(e,.caster) and e !=.caster then 
-                call Group.add(e,.g) 
-                call UnitDamageTargetBJ(.caster, e,.dmg,.ATK_TYPE,.DMG_TYPE) 
-                call Buff.effect(.caster, e,.buff_id,.x,.y,.buff_lv,.buff_dur) 
-            endif 
-            call Group.remove(e, g) 
-        endloop 
-        call Group.release(g) 
-        set e = null 
+//         // Di chuyển hiệu ứng
+//         call BlzSetSpecialEffectPosition(this.missle, x, y, z)
+//         call ex.angle(this.missle, GetAB(x, y, GetUnitX(.target), GetUnitY(.target)))
+//         // Tăng giá trị tham số
+//         set this.t = (this.t + this.speed) 
+//         // call BJDebugMsg(R2S(.t))
 
-        set.time =.time - 1 
-        if.time <= 0 or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 then 
-            call Group.release(.g) 
-            call DestroyEffect(.missle) 
-            call runtime.endx(t) // End the timer                                                                                                                                                                          
-            call.destroy() // Destroy the instance                                      
-        endif 
-    endmethod 
-    method FirePierce takes nothing returns boolean 
-        // local thistype this = thistype.create()                  
-        set.missle = Eff.new(.missle_path,.x,.y, Math.pz(.x,.y) +.z) 
-        call Eff.size(.missle,.missle_size) 
-        call Eff.angle(.missle,.a) 
-        set.g = CreateGroup() 
-        if ENV_DEV then 
-            call PLAYER.systemchat(Player(0), "[SKILL] Fire Touch") 
-            call PLAYER.systemchat(Player(0), missle_path) 
-        endif 
-        call runtime.new(this, P32, true, function thistype.FirePierceUpdate) 
-        return false 
-    endmethod 
-    //=================================================================================== 
+//         if this.t >= 1.0 then
+//             call dmg.mag( .caster, .target, .DMG_TYPE, .dmg)
+//             call DestroyEffect(this.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance      
+//         endif
+//     endmethod
+// endstruct
 
-endstruct
+
+
+// struct RotatingBullet extends SKILL
+//     real rotationSpeed   // Tốc độ quay
+//     real radius
+
+//     // Khởi tạo một viên đạn
+//     method spell_now takes nothing returns nothing
+//         local real x = GetUnitX(caster)
+//         local real y = GetUnitY(caster)
+
+//         // Thiết lập giá trị
+//         // set this.caster = caster
+//         // set this.a = angle
+//         // set this.rotationSpeed = 360
+//         // set this.aoe = 600
+//         // set this.dmg = DAMAGE
+//         // set this.time = 32
+
+//         // Tạo hiệu ứng
+//         set this.missle = AddSpecialEffect(.missle_path, x, y)
+
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod
+//     // Cập nhật vị trí và xử lý va chạm
+//     private static method move takes nothing returns nothing
+//         local timer t = GetExpiredTimer()
+//         local thistype this = runtime.get() 
+//         local real casterX = GetUnitX(this.caster)
+//         local real casterY = GetUnitY(this.caster)
+//         local real newX
+//         local real newY
+//         local group g = null 
+//         local unit e = null
+//         if IsUnitDead( .caster)  then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         // Cập nhật góc và tính toán vị trí mới
+//         set this.a = this.a + this.rotationSpeed * P32
+//         if this.a >= 360 then
+//             set this.a = this.a - 360
+//         endif
+
+//         set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+//         set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+
+//         // Cập nhật vị trí hiệu ứng
+//         call ex.move( .missle, newX, newY, GetPZ( newX, newY) + .z) 
+//         call ex.angle(.missle, .a + 90)
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, newX, newY, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen(e == null or.is_touch == true)
+//             if not.is_touch and.FilterUnit( .caster, e) then 
+//                 set.is_touch = true 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+//         set .time = .time - 1 
+ 
+//         if.time <= 0  or .is_touch then 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod
+// endstruct
+
+
+// struct Missile_Rain2 extends SKILL
+//     real targetX
+//     real targetY
+//     real currentX
+//     real currentY
+//     real height
+//     real angleYaw   // Góc xoay ngang (roll)
+//     real anglePitch // Góc nghiêng (pitch)
+//     real distance
+//     real progress
+//     string nova_path = ""
+//     real h_start = 0.00
+//     real h_end = 0.00
+//     method spell_now takes nothing returns nothing
+//         // set .targetX = targetX
+//         // set .targetY = targetY
+//         // set .caster = caster
+//         // set .speed = 600
+//         // set .dmg = 20
+//         // set .DMG_TYPE = HOA
+//         // set .height = 400.00
+//         // set .missle_path = "Abilities\\Weapons\\RedDragonBreath\\RedDragonMissile.mdl"
+//         // set .aoe = 200
+//         // set .nova_path = "Abilities\\Spells\\Other\\Incinerate\\FireLordDeathExplode.mdl" 
+//         // set .h_start = 400
+//         // set .h_end = 0
+//         set .startX = GetUnitX(.caster)
+//         set .startY = GetUnitY(.caster)
+
+//         set .currentX = .startX
+//         set .currentY = .startY
+//         set .distance = SquareRoot((targetX - .startX) * (targetX - .startX) + (targetY - .startY) * (targetY - .startY))
+//         set .angleYaw = Atan2(targetY - .startY, targetX - .startX)
+//         set .progress = 0.0
+//         set .missle = AddSpecialEffect(.missle_path, .startX, .startY)
+//         call runtime.new(this, P32, true, function thistype.move) 
+
+//     endmethod
+
+//     private static method move takes nothing returns nothing
+//         local thistype this = runtime.get() 
+//         local real speed = .speed * P32
+//         local real dz
+//         local unit e = null 
+//         local group g = null
+//         if IsUnitDead( .caster)   then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         // Tăng tiến độ và vị trí
+//         set .t = .t + speed / .distance
+//         set .currentX = .startX + (.targetX - .startX) * .t
+//         set .currentY = .startY + (.targetY - .startY) * .t
+//         set .height = .h_start + (.h_end - .h_start) * .t
+
+//         // Tính góc pitch
+//         set dz = .height - GetPZ(.currentX, .currentY)  // Độ chênh lệch chiều cao
+//         set .anglePitch = Atan2(dz, speed * P32)
+
+//         // Di chuyển và xoay hiệu ứng
+//         call ex.move(.missle, .currentX, .currentY, .height)
+//         call ex.pitch(.missle, .anglePitch)
+//         call ex.roll(.missle, .angleYaw)
+
+//         // Kiểm tra va chạm
+//         if .t >= 1.0 then
+//             call ex.nova(.nova_path, .currentX, .currentY)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .currentX, .currentY, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null )
+//                 if .FilterUnit( .caster, e) then 
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance    
+//         endif
+//     endmethod
+
+// endstruct
+
+
+// struct Missle_Bouncing extends SKILL 
+//     integer cliff = 0
+//     private static method move takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         local real x = 0 
+//         local real y = 0 
+//         local boolean b = false 
+//         if IsUnitDead( .caster)   then // Unit chết thì ko làm gì
+//             call DestroyEffect(.missle)
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         set x = GetPPX(.x, .speed, .a) 
+//         set y = GetPPY(.y, .speed, .a) 
+//         if IsTerrainWalkable(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
+//             set .cliff = GetTerrainCliffLevel(x, y)
+//             set b = true 
+//         else 
+//             set.a =.a + 180 
+//         endif 
+
+//         if b then 
+//             set.x = x 
+//             set.y = y 
+//             call ex.angle(.missle, .a) 
+//             call ex.move(.missle, .x, .y, GetPZ(.x, .y) +.z) 
+//         endif 
+
+//         set g = CreateGroup() 
+//         call groups.enum(g, .x, .y, .aoe) 
+//         loop 
+//             set e = FirstOfGroup(g) 
+//             exitwhen (e == null or .is_touch)
+//             if .FilterUnit(.caster, e) and not .is_touch then 
+//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 set .is_touch = true
+//             endif 
+//             call groups.remove(e, g) 
+//         endloop 
+//         call groups.release(g) 
+//         set e = null 
+
+
+//         set.time =.time - 1 
+//         if.time <= 0 or .is_touch then 
+//             call DestroyEffect(.missle) 
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns nothing 
+//         // set mb = Missle_Bouncing.create()
+//         // set mb.time = 32*6 
+//         // set mb.caster = caster
+//         // call mb.setxyz(x,y,z)
+//         // set mb.a = GetAB(GetUnitX(caster),GetUnitY(caster),xt,yt)
+//         // set mb.DMG_TYPE = LOI 
+//         // set mb.dmg = 20 
+//         // set mb.aoe = 50 
+//         // set mb.speed = 15 
+//         // set mb.missle_path = "Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl"
+//         // set mb.missle_size = 0.75
+//         // set mb.cliff = GetTerrainCliffLevel(.x, .y) 
+//         // call mb.spell_now()
+
+//         set.missle = ex.new(.missle_path, .x, .y, GetPZ(.x, .y) +.z) 
+//         call ex.size(.missle, .missle_size) 
+//         call ex.angle(.missle, .a) 
+//         call runtime.new(this, P32, true, function thistype.move) 
+//     endmethod 
+// endstruct
+
+// // struct Missle_Volley_Touch extends SKILL 
+// //     private static method VolleyTouchUpdate takes nothing returns nothing 
+// //         local thistype this = getRT() 
+// //         local group g 
+// //         local unit e 
+// //         local real r = 0 
+// //         local real r2 = 0 
+
+// //         set r =.a + 30 * Cos(.i * bj_PI / 20) 
+// //         set r2 =.a + 30 * Sin(.i * bj_PI / 20) 
+// //         // set.speed = ((.d / (25.00 + 15)) + ((15.00 / (800 + 50)) *.d))                                                                                                                                                                                                                                                        
+// //         set.x = GetPPX(.x, .speed, r) 
+// //         set.y = GetPPY(.y, .speed, r) 
+// //         set.x2 = GetPPX(.x2, .speed, r2) 
+// //         set.y2 = GetPPY(.y2, .speed, r2) 
+// //         call angleEX(.ex, r) 
+// //         call angleEX(.ex2, r2) 
+// //         call setEX(.ex, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call setEX(.ex2, .x2, .y2, GetPZ(.x2, .y2) +.z) 
+
+// //         set g = CreateGroup() 
+// //         call groups.enum(g, .x, .y, .aoe) 
+// //         loop 
+// //             set e = FirstOfGroup(g) 
+// //             exitwhen e == null 
+// //             if not IsUnitDead(e) and IsUnitEnemy(e, GetOwningPlayer(.caster)) and not.is_touch and BlzIsUnitInvulnerable(e) == false then 
+// //                 set.is_touch = true 
+// //                 call UnitDamageTargetBJ(.caster, e, .dmg, .ATK_TYPE, .DAMAGE_TYPE) 
+// //                 call EFFECT.GetEffect(.time, .caster, e, .eff, .x, .y, 0) 
+// //             endif 
+// //             call groups.remove(e, g) 
+// //         endloop 
+// //         call groups.release(g) 
+// //         set e = null 
+
+// //         set g = CreateGroup() 
+// //         call groups.enum(g, .x2, .y2, .aoe) 
+// //         loop 
+// //             set e = FirstOfGroup(g) 
+// //             exitwhen e == null 
+// //             if not IsUnitDead(e) and IsUnitEnemy(e, GetOwningPlayer(.caster)) and not.is_touch2 and BlzIsUnitInvulnerable(e) == false then 
+// //                 set.is_touch2 = true 
+// //                 call UnitDamageTargetBJ(.caster, e, .dmg, .ATK_TYPE, .DAMAGE_TYPE) 
+// //                 call EFFECT.GetEffect(.time, .caster, e, .eff, .x2, .y2, 0) 
+// //             endif 
+// //             call groups.remove(e, g) 
+// //         endloop 
+// //         call groups.release(g) 
+// //         set e = null 
+
+// //         set.t2 =.t2 + 1 
+// //         // set this.t = R2I(.d /.speed) * 4                                                                                                                                                                                                                                                          
+ 
+// //         set.i =.i - 1 
+// //         if.i <= 0 or(.is_touch and.is_touch2) or GetUnitState(.caster, UNIT_STATE_LIFE) <= 0 then 
+// //             call DestroyEffect(.ex) 
+// //             call DestroyEffect(.ex2) 
+// //             call breakRT() 
+// //             call this.destroy() 
+// //         endif 
+// //     endmethod 
+// //     public static method VolleyTouch takes unit caster, unit target, real x, real y, real z, real a, integer i, string path, real SizeMissleEff, real dmg, integer Effect, real time, damagetype dmgtype, attacktype atktype, real aoe, real speed returns boolean 
+// //         local thistype this = thistype.create() 
+// //         set.caster = caster 
+// //         set.x = x 
+// //         set.y = y 
+// //         set.x2 = x 
+// //         set.y2 = y 
+// //         set.z = z 
+// //         set.a = a 
+// //         set.d = GetDBU(caster, target) 
+// //         set.t2 = 0 
+// //         set.ex = newEX(path, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call sizeEX(.ex, SizeMissleEff) 
+// //         call angleEX(.ex, a) 
+// //         set.ex2 = newEX(path, .x, .y, GetPZ(.x, .y) +.z) 
+// //         call sizeEX(.ex2, SizeMissleEff) 
+// //         call angleEX(.ex2, a) 
+// //         set.aoe = aoe 
+// //         set.dmg = dmg 
+// //         set.eff = eff 
+// //         set.DAMAGE_TYPE = dmgtype 
+// //         set.ATK_TYPE = atktype 
+// //         set.time = time 
+// //         set.speed = speed 
+// //         set.is_touch = false 
+// //         set.is_touch2 = false                                                                                                                                                                                                                                                   
+// //         set.i = i 
+// //         call addRT(this, P32, true, function thistype.VolleyTouchUpdate) 
+// //         return false 
+// //     endmethod 
+// // endstruct
+
+
+// struct Lightning_Link_DPS extends SKILL 
+//     string nova_path = ""
+//     string attach_path = ""
+//     integer tick = 0
+//     private static method spell_update takes nothing returns nothing 
+//         local thistype this = runtime.get() 
+//         local group g = null 
+//         local unit e = null 
+//         if IsUnitDead( .caster) or IsUnitDead( .target)   then // Unit chết thì ko làm gì
+//             call DestroyLightningBJ( .light )
+//             call DestroyLightningBJ( .light2 )
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance 
+//         endif
+//         call MoveLightningEx(.light, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         call MoveLightningEx(.light2, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+
+//         if ModuloInteger(.time , .tick) == 0 then 
+//             set .tick = .tick - R2I(.increment)
+//             call ex.nova(.nova_path, .x, .y)
+//             set g = CreateGroup() 
+//             call groups.enum(g, .x, .y, .aoe) 
+//             loop 
+//                 set e = FirstOfGroup(g) 
+//                 exitwhen(e == null)
+//                 if .FilterUnit( .caster, e)  then 
+//                     call ex.chest(.attach_path, e)
+//                     call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
+//                 endif 
+//                 call groups.remove(e, g) 
+//             endloop 
+//             call groups.release(g) 
+//             set e = null 
+//         endif
+
+//         set.time = .time - 1 
+//         if.time <= 0 then 
+//             call DestroyLightningBJ( .light )
+//             call DestroyLightningBJ( .light2 )
+
+//             call runtime.end() // End the timer                                                                                                                                                                                                       
+//             call.destroy() // Destroy the instance                                                                   
+//         endif 
+//     endmethod 
+//     method spell_now takes nothing returns boolean 
+//         //set light.caster = caster 
+//         //set light.target = target 
+//         //set light.light_name = CLPB 
+//         //set light.light_name2 = CLSB 
+//         //set light.z = 120
+//         //set light.tick = 16
+//         //set light.time = 32*3
+        
+//         //Chain Lighning Primary: CLPB
+//         //Chain Lighning Secondary: CLSB
+//         //Fork lightning: FORK
+//         //Finger Of Death: AFOD
+        
+//         set .x = GetUnitX(.caster)
+//         set .y = GetUnitY(.caster)
+//         set .xt = GetUnitX(.target)
+//         set .yt = GetUnitY(.target)
+//         set .light = AddLightningEx(.light_name, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         set .light2 = AddLightningEx(.light_name2, true, .x, .y, GetPZ( .x, .y) + .z, .xt, .yt, GetPZ( .xt, .yt) + .z)
+//         // call SetLightningColorBJ( GetLastCreatedLightningBJ(), 1.00, 1.00, 1.00, 1.00 )
+//         call runtime.new(this, P32, true, function thistype.spell_update) 
+//         return false 
+//     endmethod 
+// endstruct
+
