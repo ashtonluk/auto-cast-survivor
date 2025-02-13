@@ -21,6 +21,10 @@ struct Boo
     static method iswalk takes real x, real y returns boolean 
         return IsTerrainPathable(x, y, PATHING_TYPE_WALKABILITY) 
     endmethod 
+    static method hasitem takes unit u, integer id returns boolean 
+        return UnitHasItemOfTypeBJ(u, id)
+    endmethod
+        
     static method nounit takes unit u, real x, real y, real aoe returns boolean 
         local group g = CreateGroup() 
         local unit e = null 

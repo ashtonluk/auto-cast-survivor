@@ -65,7 +65,31 @@ struct Unit
         endif 
         return i 
     endmethod 
+    static method disablemove takes unit u returns nothing
+        call SetUnitPropWindow(u, 0)
+    endmethod
+ 
+    static method enabledmove takes unit u returns nothing
+        call SetUnitPropWindow(u, GetUnitDefaultPropWindow(u) * bj_DEGTORAD)
+    endmethod
 
+    static method disablecontrol takes unit u returns nothing
+        local integer id = GetHandleId(u)
+        local real r = LoadReal(ht, id, 0x881)
+        if r == 0 then
+            call SaveReal(ht, id, 0x881, GetUnitTurnSpeed(u))
+        endif
+        call SetUnitTurnSpeed(u, 0)
+    endmethod
+    static method enablecontrol takes unit u returns nothing
+        local integer id = GetHandleId(u)
+        local real r = LoadReal(ht, id, 0x881)
+        if r != 0 then
+            call SetUnitTurnSpeed(u, r)
+        else
+            call SetUnitTurnSpeed(u, GetUnitTurnSpeed(u))
+        endif
+    endmethod
     // Get Collision of unit u              
     // Use: Unit.collision(u)              
     method collision takes unit u returns real 

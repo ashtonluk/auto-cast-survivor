@@ -3,7 +3,14 @@
 struct GAME 
     static boolean IsSinglePlay = false 
     static integer CountPlayer = 0 
+
+    //Store
     static unit array Survivor 
+    static integer array Survivor_Weapon 
+
+
+
+
     static Randompool pool_item
     static Randompool pool_item_rare
     static Multiboard MB 
@@ -75,6 +82,7 @@ struct GAME
             if PLAYER.IsPlayerOnline(Player(n)) then 
                 set PLAYER.IsDisconect[n] = false 
                 set GAME.Survivor[n] = CreateUnit(Player(n), 'H000', Math.ppx(.centerX, 400, 30 * n), Math.ppy(.centerY, 400, 30 * n), 270)
+                set GAME.Survivor_Weapon[n]= 'A000' 
                 call Bonus.apply( GAME.Survivor[n])
                 set GAME.CountPlayer = GAME.CountPlayer + 1 
             else 
