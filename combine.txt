@@ -1697,7 +1697,8 @@ endstruct
 struct DummyX 
     static integer dummy_id = 'e000' //Set your id dummy                                     
     // static integer dummy_id = 'edry' //Set your id dummy    
-    static integer stun_id = 'A001'                              
+    static integer stun_id = 'A001'     
+    static integer chain_lightning_id = 'A004'                         
     static unit array load 
     static method new takes nothing returns nothing 
         set bj_forLoopAIndex = 0 
@@ -1734,12 +1735,21 @@ struct DummyX
         // call SetUnitX(dummy, GetUnitX(u)) 
         // call SetUnitY(dummy, GetUnitY(u)) 
         call UnitAddAbility(dummy, .stun_id) 
-        // call SetUnitAbilityLevel(dummy, spell_id, level) 
+        // call SetUnitAbilityLevel(dummy, spell_id, 0) 
         call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_NORMAL, 0, duration )
         call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_HERO, 0, duration )
         call IssueTargetOrder(dummy, "thunderbolt", u) 
         call UnitRemoveAbility(dummy, .stun_id) 
     endmethod 
+    static method chain_lightning takes unit dummy, unit target, real reduce_by_target, real damage, integer num_target returns nothing 
+        // call UnitAddAbility(dummy, .chain_lightning_id) 
+        call SetUnitAbilityLevel(dummy, .chain_lightning_id, 0) 
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .chain_lightning_id) , ABILITY_RLF_DAMAGE_REDUCTION_PER_TARGET, 0, reduce_by_target )
+        call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .chain_lightning_id), ABILITY_RLF_DAMAGE_PER_TARGET_OCL1, 0, damage )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .chain_lightning_id), ABILITY_ILF_NUMBER_OF_TARGETS_HIT, 0, num_target )
+        call IssueTargetOrder(dummy, "chainlightning", target) 
+        // call UnitRemoveAbility(dummy, .chain_lightning_id) 
+    endmethod
     static method point takes string ordername, unit dummy, real x, real y, integer level, integer spell_id returns nothing 
         // call SetUnitX(dummy, x)     
         // call SetUnitY(dummy, y)     
@@ -3113,7 +3123,7 @@ endstruct
 //         endif
 //         set x = Math.ppx(.x, .speed, .a) 
 //         set y = Math.ppy(.y, .speed, .a) 
-//         if IsTerrainWalkable(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
+//         if Boo.iswalk(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
 //             set .cliff = GetTerrainCliffLevel(x, y)
 //             set b = true 
 //         else 
@@ -3337,6 +3347,7 @@ endstruct
 // endstruct
 
 
+
 struct Es //Escape
     static key Dash
     static key AirBone 
@@ -3346,9 +3357,31 @@ struct Es //Escape
     static key key_id 
     static hashtable ht = InitHashtable()
     static method change_status takes unit u, integer status_id , integer key_id returns boolean
+        local integer hid = GetHandleId(u)
+        // call BJDebugMsg("Jump:" + I2S(.Jumped))
+        // call BJDebugMsg("Knockback:" + I2S(.Knockback))
+        // call BJDebugMsg("Input:" + I2S(status_id) + "Now: " + I2S(LoadInteger(.ht, hid, .status ) ))
         if status_id ==.Jumped then 
-            call SaveInteger(.ht, GetHandleId(u), .status, status_id) 
-            call SaveInteger(.ht, GetHandleId(u), .key_id, key_id)
+            call Unit.enabledmove(u)
+            call Unit.enablecontrol(u)
+            call SetUnitFlyHeight(u, GetUnitDefaultFlyHeight(u), 0)
+            call SetUnitPosition(u, GetUnitX(u), GetUnitY(u))
+            if LoadInteger(.ht, hid, .status ) ==.Knockback then
+                return false
+            endif
+            call SaveInteger(.ht, hid, .status, status_id) 
+            call SaveInteger(.ht, hid, .key_id, key_id)
+            return true
+        endif
+        if status_id ==.Knockback then 
+            if LoadInteger(.ht, hid, .status ) ==.Jumped then
+                call Unit.enabledmove(u)
+                call Unit.enablecontrol(u)
+                // call SetUnitFlyHeight(u, GetUnitDefaultFlyHeight(u), 0.0)
+                call SetUnitPosition(u, GetUnitX(u), GetUnitY(u))
+            endif
+            call SaveInteger(.ht, hid, .status, status_id) 
+            call SaveInteger(.ht, hid, .key_id, key_id)
             return true
         endif
         return false
@@ -3507,6 +3540,120 @@ struct JumpX
     endmethod 
 endstruct
 
+struct KnockX
+    unit u
+    boolean amove
+    boolean ktree
+    boolean stop
+    real sp
+    real h
+    real dh
+    real dur
+    real fa
+    string ground_sfx = "Abilities\\Weapons\\AncientProtectorMissile\\AncientProtectorMissile.mdl"
+    string water_sfx = "" 
+    integer key_id = 0 
+    integer status_id = 0
+    real time = 0.00
+    static integer stack = - 8024
+    private static method KnocLooper takes nothing returns nothing
+        local thistype this = runtime.get() 
+        local real x = GetUnitX(this.u) + this.sp * Cos(this.fa)
+        local real y = GetUnitY(this.u) + this.sp * Sin(this.fa)
+        local boolean w = Boo.iswalk(x, y)
+        if this.ktree then
+            //call KillTreeRadius(x, y, 150)
+        endif
+        if Es.is_stack(this.u, .status_id, .key_id) then 
+            // call SetUnitFlyHeight(this.u, GetUnitDefaultFlyHeight(.u), 0)
+            call runtime.end() // End the timer                                                                                                                                                                                                        
+            call.destroy() // Destroy the instance  
+        else
+            //Same id
+        endif
+        set .time = .time + 0.03125
+        if .time > this.dur or not w or this.stop then
+            if w == false then //SFX when don't walkable
+                if .ground_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.ground_sfx, x, y))
+                endif
+            endif
+                
+            // static if ALLOW_STACK_UNIT then
+            //     if not this.amove then
+            //         call SetUnitPathing(this.u, true)
+            //     endif
+            // endif
+            call Es.reset(.u)
+            call SetUnitFlyHeight(this.u, GetUnitDefaultFlyHeight(.u), 0)
+            set this.sp = 0
+            set this.dur = 0
+            set this.u = null
+            set this.stop = false
+            set this.ktree = false
+            set this.amove = false
+            call BJDebugMsg("KnockX End")
+  
+            call runtime.end()
+            call this.destroy()
+        else
+            
+            if IsTerrainPathable(x, y, PATHING_TYPE_FLOATABILITY) then
+                if .ground_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.ground_sfx, x, y))
+                endif
+            else
+                if .water_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.water_sfx, x, y))
+                endif
+            endif
+
+            if this.amove then
+                if Boo.iswalk(x, y) then
+                    call SetUnitX(this.u, x)
+                    call SetUnitY(this.u, y)
+                    call SetUnitFlyHeight(.u, GetUnitFlyHeight(.u) - .dh, 0)
+                endif
+            else
+                if Boo.iswalk(x, y) then
+                    call SetUnitPosition(this.u, x, y)
+                    call SetUnitFlyHeight(.u, GetUnitFlyHeight(.u) - .dh, 0)
+                endif
+            endif
+        endif
+    endmethod
+    method knock_now takes unit u, real dis, real dur, real fa, boolean AllowMove, boolean KillTree returns nothing
+        local boolean b = false
+        // call SaveInteger(ht, GetHandleId(u) , 0x281, this)
+        set this.stop = false
+        set this.amove = AllowMove
+        set this.ktree = KillTree
+        set this.fa = fa * bj_DEGTORAD
+        set this.sp = (dis / (dur / P32)) //this is speed
+        set this.u = u
+        set this.dur = dur
+        set this.h = GetUnitFlyHeight(.u) - GetUnitDefaultFlyHeight(.u)
+        set this.dh = (h / (dur / P32))
+        set .status_id = Es.Knockback
+        if not Es.is_stack(.u, .status_id, .key_id) then
+            set .stack = .stack + 1
+            set .key_id = .key_id + .stack
+            set b = Es.change_status(.u, .status_id, .key_id)
+        else
+            set b = Es.change_status(.u, .status_id, .key_id)
+        endif
+        // static if ALLOW_STACK_UNIT then
+        //     if not AllowMove then
+        //         call SetUnitPathing(this.u, false)
+        //     endif
+        // endif
+        if b then 
+            call runtime.new(this, P32, true, function thistype.KnocLooper)
+        else
+            call.destroy() // Destroy the instance   
+        endif
+    endmethod
+endstruct
 
 
 //--- Content from folder: ./3-Skill/2-Controller.j ---
@@ -3721,6 +3868,68 @@ struct Staff_Fire_Controller extends SKILL
         return false 
     endmethod 
 endstruct
+struct Wand_Lightning_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            loop
+                exitwhen n > 8
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
+                    call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(.caster))
+                    call DummyX.chain_lightning(DummyX.load[Num.uid( .caster)] , bj_unit, 0.15, .dmg, 3) 
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+  
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+
 
 //--- Content from folder: ./4-Event/1 - Unit - BeginConstruction.j ---
 struct EV_BEGIN_STRUCTION 
@@ -4045,11 +4254,11 @@ struct EV_START_SPELL_EFFECT
 
         if abicode == 'A000' then 
             if GAME.Survivor_Weapon[pid] == 'A002' then //Bow
-                set timed = 3.0
+                set timed = 2.0
             elseif GAME.Survivor_Weapon[pid] == 'A002' then //Normal attack
-                set timed = 2.5
+                set timed = 1.80
             elseif GAME.Survivor_Weapon[pid] == 'A003' then //Staff of Fire
-                set timed = 3.0
+                set timed = 2.2
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
@@ -4061,7 +4270,7 @@ struct EV_START_SPELL_EFFECT
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' then 
             set GAME.Survivor_Weapon[pid] = abicode
         endif
 
@@ -4091,7 +4300,8 @@ struct EV_START_SPELL_EFFECT
         local Attack_Controller atk 
         local Bow_Controller bow 
         local Staff_Fire_Controller sf 
-        if abicode == 'A000' then 
+        local Wand_Lightning_Controller wl
+        if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
             set atk.time = 20
             set atk.caster = caster 
@@ -4107,7 +4317,7 @@ struct EV_START_SPELL_EFFECT
             set atk.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
             call atk.spell_now()
         endif
-        if abicode == 'A002' then 
+        if abicode == 'A002' then //Bow attack
             if Boo.hasitem(caster, 'I000') then //Bow item 
                 set bow = Bow_Controller.create()
                 set bow.time = 20
@@ -4132,8 +4342,8 @@ struct EV_START_SPELL_EFFECT
            
         endif
 
-        if abicode == 'A003' then 
-            if Boo.hasitem(caster, 'I001') then //Bow item 
+        if abicode == 'A003' then //Fire staff
+            if Boo.hasitem(caster, 'I001') then //fire staff item 
                 set sf = Staff_Fire_Controller.create()
                 set sf.time = 20
                 set sf.time_bow = 30
@@ -4153,6 +4363,22 @@ struct EV_START_SPELL_EFFECT
                 set sf.nova_size = 1.00
                 set sf.nova_path = "Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl"
                 call sf.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+           
+        endif
+        
+        if abicode == 'A005' then //Fire staff
+            if Boo.hasitem(caster, 'I002') then //fire staff item 
+                set wl = Wand_Lightning_Controller.create()
+                set wl.caster = caster 
+                set wl.time = 20
+                set wl.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 1.05) + (Hero.int(caster) * 1.15 )
+                set wl.anim = "spell"
+                call wl.spell_now()
+                // call BJDebugMsg("lightning")
             else 
                 set GAME.Survivor_Weapon[pid] = 'A000'
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
@@ -4627,8 +4853,9 @@ struct WAVE
         set n = 1 
         loop 
             exitwhen n > number 
-            set bj_unit = CreateUnit(Player(10), id, GetLocationX(bj_loc), GetLocationY(bj_loc), angle) 
-            call QueueUnitAnimation(bj_unit, "birth") 
+            set bj_lastCreatedUnit = CreateUnit(Player(10), id, GetLocationX(bj_loc), GetLocationY(bj_loc), angle) 
+            call QueueUnitAnimation(bj_lastCreatedUnit, "birth") 
+            set bj_lastCreatedUnit = null
             set n = n + 1 
         endloop 
     endmethod 
@@ -4778,6 +5005,85 @@ endstruct
 
 //--- Content from folder: ./5-Features/7-Weapon.j ---
 
+
+//--- Content from folder: ./5-Features/8-Aim.j ---
+
+struct Aiming 
+    static method ally_filter takes unit u , unit e returns boolean 
+        if not Boo.isdead(e) and IsUnitAlly(e, GetOwningPlayer(u)) and Boo.ishero(e) then 
+            return true 
+        endif 
+        return false
+    endmethod
+    static method enemy_filter takes unit u , unit e returns boolean 
+        if not Boo.isdead(e) and IsUnitEnemy(u, GetOwningPlayer(e)) and BlzIsUnitInvulnerable(e) == false then 
+            return true 
+        endif 
+        return false
+    endmethod
+    static method enemy_nearest takes unit caster, real x , real y , real aoe returns nothing  
+        local real Nearest = aoe
+        local unit e = null
+        local real db = 0 
+        local real xx = 0 
+        local real yy = 0 
+        local integer n = 0 
+        set bj_group = CreateGroup()
+        call Group.enum(bj_group, x, y, aoe) 
+        loop 
+            set e = FirstOfGroup(bj_group) 
+            exitwhen e == null 
+            set db = Math.db(x, y, GetUnitX(e) , GetUnitY(e)) 
+            if.enemy_filter(caster, e) and db < Nearest then 
+                set Nearest = db 
+                set bj_unit = e 
+            endif 
+            call Group.remove(e, bj_group) 
+        endloop 
+        set e = null 
+        call Group.release(bj_group) 
+        set bj_group = null
+    endmethod 
+    static method enemy_lesshp takes unit u, real range returns nothing 
+        local real lowerestPercentHP = 100 
+        local unit e = null 
+        local real db = 0 
+        set bj_group = CreateGroup()
+        call Group.enum(bj_group, GetUnitX(u) , GetUnitY(u) , range) 
+        loop 
+            set e = FirstOfGroup(bj_group) 
+            exitwhen e == null 
+            if.enemy_filter(u, e) and GetUnitLifePercent(u) <= lowerestPercentHP then 
+                set lowerestPercentHP = GetUnitLifePercent(e) 
+                set bj_unit = e 
+            endif 
+            call Group.remove(e, bj_group) 
+        endloop 
+        call Group.release(bj_group) 
+        set e = null 
+    endmethod 
+    static method lesshp takes unit u, real x, real y , real range returns nothing 
+        local real lowerestPercentHP = 100 
+        local unit e = null 
+        local real db = 0 
+        set bj_group = CreateGroup()
+        call Group.enum(bj_group, x, y, range) 
+        loop 
+            set e = FirstOfGroup(bj_group) 
+            exitwhen e == null 
+            if not Boo.isdead(e) and not IsUnitType(e, UNIT_TYPE_STRUCTURE) and GetUnitLifePercent(u) <= lowerestPercentHP then 
+                set lowerestPercentHP = GetUnitLifePercent(e) 
+                set bj_unit = e 
+            endif 
+            call Group.remove(e, bj_group) 
+        endloop 
+        call Group.release(bj_group) 
+        set e = null 
+    endmethod 
+    static method reset takes nothing returns nothing 
+        set bj_unit = null
+    endmethod
+endstruct
 
 //--- Content from folder: ./6-Timers/1-Interval.j ---
 struct Interval 

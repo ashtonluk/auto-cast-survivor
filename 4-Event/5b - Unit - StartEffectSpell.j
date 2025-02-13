@@ -26,11 +26,15 @@ struct EV_START_SPELL_EFFECT
 
         if abicode == 'A000' then 
             if GAME.Survivor_Weapon[pid] == 'A002' then //Bow
-                set timed = 3.0
+                set timed = 2.0
             elseif GAME.Survivor_Weapon[pid] == 'A002' then //Normal attack
-                set timed = 2.5
+                set timed = 1.80
             elseif GAME.Survivor_Weapon[pid] == 'A003' then //Staff of Fire
-                set timed = 3.0
+                set timed = 2.2
+            elseif GAME.Survivor_Weapon[pid] == 'A005' then //Wand of lightning
+                set timed = 2.2
+            elseif GAME.Survivor_Weapon[pid] == 'A005' then //Crossbow
+                set timed = 4.2
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
@@ -42,7 +46,7 @@ struct EV_START_SPELL_EFFECT
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode = 'A006' then 
             set GAME.Survivor_Weapon[pid] = abicode
         endif
 
@@ -72,7 +76,8 @@ struct EV_START_SPELL_EFFECT
         local Attack_Controller atk 
         local Bow_Controller bow 
         local Staff_Fire_Controller sf 
-        if abicode == 'A000' then 
+        local Wand_Lightning_Controller wl
+        if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
             set atk.time = 20
             set atk.caster = caster 
@@ -88,7 +93,7 @@ struct EV_START_SPELL_EFFECT
             set atk.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
             call atk.spell_now()
         endif
-        if abicode == 'A002' then 
+        if abicode == 'A002' then //Bow attack
             if Boo.hasitem(caster, 'I000') then //Bow item 
                 set bow = Bow_Controller.create()
                 set bow.time = 20
@@ -113,8 +118,8 @@ struct EV_START_SPELL_EFFECT
            
         endif
 
-        if abicode == 'A003' then 
-            if Boo.hasitem(caster, 'I001') then //Bow item 
+        if abicode == 'A003' then //Fire staff
+            if Boo.hasitem(caster, 'I001') then //fire staff item 
                 set sf = Staff_Fire_Controller.create()
                 set sf.time = 20
                 set sf.time_bow = 30
@@ -134,6 +139,22 @@ struct EV_START_SPELL_EFFECT
                 set sf.nova_size = 1.00
                 set sf.nova_path = "Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl"
                 call sf.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+           
+        endif
+        
+        if abicode == 'A005' then //Fire staff
+            if Boo.hasitem(caster, 'I002') then //fire staff item 
+                set wl = Wand_Lightning_Controller.create()
+                set wl.caster = caster 
+                set wl.time = 20
+                set wl.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 1.05) + (Hero.int(caster) * 1.15 )
+                set wl.anim = "spell"
+                call wl.spell_now()
+                // call BJDebugMsg("lightning")
             else 
                 set GAME.Survivor_Weapon[pid] = 'A000'
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)

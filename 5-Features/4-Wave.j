@@ -15,8 +15,9 @@ struct WAVE
         set n = 1 
         loop 
             exitwhen n > number 
-            set bj_unit = CreateUnit(Player(10), id, GetLocationX(bj_loc), GetLocationY(bj_loc), angle) 
-            call QueueUnitAnimation(bj_unit, "birth") 
+            set bj_lastCreatedUnit = CreateUnit(Player(10), id, GetLocationX(bj_loc), GetLocationY(bj_loc), angle) 
+            call QueueUnitAnimation(bj_lastCreatedUnit, "birth") 
+            set bj_lastCreatedUnit = null
             set n = n + 1 
         endloop 
     endmethod 

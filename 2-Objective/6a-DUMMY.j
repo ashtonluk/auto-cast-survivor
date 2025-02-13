@@ -9,7 +9,8 @@
 struct DummyX 
     static integer dummy_id = 'e000' //Set your id dummy                                     
     // static integer dummy_id = 'edry' //Set your id dummy    
-    static integer stun_id = 'A001'                              
+    static integer stun_id = 'A001'     
+    static integer chain_lightning_id = 'A004'                         
     static unit array load 
     static method new takes nothing returns nothing 
         set bj_forLoopAIndex = 0 
@@ -46,12 +47,21 @@ struct DummyX
         // call SetUnitX(dummy, GetUnitX(u)) 
         // call SetUnitY(dummy, GetUnitY(u)) 
         call UnitAddAbility(dummy, .stun_id) 
-        // call SetUnitAbilityLevel(dummy, spell_id, level) 
+        // call SetUnitAbilityLevel(dummy, spell_id, 0) 
         call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_NORMAL, 0, duration )
         call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .stun_id), ABILITY_RLF_DURATION_HERO, 0, duration )
         call IssueTargetOrder(dummy, "thunderbolt", u) 
         call UnitRemoveAbility(dummy, .stun_id) 
     endmethod 
+    static method chain_lightning takes unit dummy, unit target, real reduce_by_target, real damage, integer num_target returns nothing 
+        // call UnitAddAbility(dummy, .chain_lightning_id) 
+        call SetUnitAbilityLevel(dummy, .chain_lightning_id, 0) 
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .chain_lightning_id) , ABILITY_RLF_DAMAGE_REDUCTION_PER_TARGET, 0, reduce_by_target )
+        call BlzSetAbilityRealLevelFieldBJ( BlzGetUnitAbility(dummy, .chain_lightning_id), ABILITY_RLF_DAMAGE_PER_TARGET_OCL1, 0, damage )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .chain_lightning_id), ABILITY_ILF_NUMBER_OF_TARGETS_HIT, 0, num_target )
+        call IssueTargetOrder(dummy, "chainlightning", target) 
+        // call UnitRemoveAbility(dummy, .chain_lightning_id) 
+    endmethod
     static method point takes string ordername, unit dummy, real x, real y, integer level, integer spell_id returns nothing 
         // call SetUnitX(dummy, x)     
         // call SetUnitY(dummy, y)     

@@ -209,3 +209,66 @@ struct Staff_Fire_Controller extends SKILL
         return false 
     endmethod 
 endstruct
+
+
+struct Wand_Lightning_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            loop
+                exitwhen n > 8
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
+                    call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(.caster))
+                    call DummyX.chain_lightning(DummyX.load[Num.uid( .caster)] , bj_unit, 0.15, .dmg, 3) 
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+  
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+

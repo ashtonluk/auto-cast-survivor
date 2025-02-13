@@ -944,7 +944,7 @@ endstruct
 //         endif
 //         set x = Math.ppx(.x, .speed, .a) 
 //         set y = Math.ppy(.y, .speed, .a) 
-//         if IsTerrainWalkable(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
+//         if Boo.iswalk(x, y) and GetTerrainCliffLevel(x, y) <=.cliff then 
 //             set .cliff = GetTerrainCliffLevel(x, y)
 //             set b = true 
 //         else 
@@ -1168,6 +1168,7 @@ endstruct
 // endstruct
 
 
+
 struct Es //Escape
     static key Dash
     static key AirBone 
@@ -1177,9 +1178,31 @@ struct Es //Escape
     static key key_id 
     static hashtable ht = InitHashtable()
     static method change_status takes unit u, integer status_id , integer key_id returns boolean
+        local integer hid = GetHandleId(u)
+        // call BJDebugMsg("Jump:" + I2S(.Jumped))
+        // call BJDebugMsg("Knockback:" + I2S(.Knockback))
+        // call BJDebugMsg("Input:" + I2S(status_id) + "Now: " + I2S(LoadInteger(.ht, hid, .status ) ))
         if status_id ==.Jumped then 
-            call SaveInteger(.ht, GetHandleId(u), .status, status_id) 
-            call SaveInteger(.ht, GetHandleId(u), .key_id, key_id)
+            call Unit.enabledmove(u)
+            call Unit.enablecontrol(u)
+            call SetUnitFlyHeight(u, GetUnitDefaultFlyHeight(u), 0)
+            call SetUnitPosition(u, GetUnitX(u), GetUnitY(u))
+            if LoadInteger(.ht, hid, .status ) ==.Knockback then
+                return false
+            endif
+            call SaveInteger(.ht, hid, .status, status_id) 
+            call SaveInteger(.ht, hid, .key_id, key_id)
+            return true
+        endif
+        if status_id ==.Knockback then 
+            if LoadInteger(.ht, hid, .status ) ==.Jumped then
+                call Unit.enabledmove(u)
+                call Unit.enablecontrol(u)
+                // call SetUnitFlyHeight(u, GetUnitDefaultFlyHeight(u), 0.0)
+                call SetUnitPosition(u, GetUnitX(u), GetUnitY(u))
+            endif
+            call SaveInteger(.ht, hid, .status, status_id) 
+            call SaveInteger(.ht, hid, .key_id, key_id)
             return true
         endif
         return false
@@ -1338,3 +1361,117 @@ struct JumpX
     endmethod 
 endstruct
 
+struct KnockX
+    unit u
+    boolean amove
+    boolean ktree
+    boolean stop
+    real sp
+    real h
+    real dh
+    real dur
+    real fa
+    string ground_sfx = "Abilities\\Weapons\\AncientProtectorMissile\\AncientProtectorMissile.mdl"
+    string water_sfx = "" 
+    integer key_id = 0 
+    integer status_id = 0
+    real time = 0.00
+    static integer stack = - 8024
+    private static method KnocLooper takes nothing returns nothing
+        local thistype this = runtime.get() 
+        local real x = GetUnitX(this.u) + this.sp * Cos(this.fa)
+        local real y = GetUnitY(this.u) + this.sp * Sin(this.fa)
+        local boolean w = Boo.iswalk(x, y)
+        if this.ktree then
+            //call KillTreeRadius(x, y, 150)
+        endif
+        if Es.is_stack(this.u, .status_id, .key_id) then 
+            // call SetUnitFlyHeight(this.u, GetUnitDefaultFlyHeight(.u), 0)
+            call runtime.end() // End the timer                                                                                                                                                                                                        
+            call.destroy() // Destroy the instance  
+        else
+            //Same id
+        endif
+        set .time = .time + 0.03125
+        if .time > this.dur or not w or this.stop then
+            if w == false then //SFX when don't walkable
+                if .ground_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.ground_sfx, x, y))
+                endif
+            endif
+                
+            // static if ALLOW_STACK_UNIT then
+            //     if not this.amove then
+            //         call SetUnitPathing(this.u, true)
+            //     endif
+            // endif
+            call Es.reset(.u)
+            call SetUnitFlyHeight(this.u, GetUnitDefaultFlyHeight(.u), 0)
+            set this.sp = 0
+            set this.dur = 0
+            set this.u = null
+            set this.stop = false
+            set this.ktree = false
+            set this.amove = false
+            call BJDebugMsg("KnockX End")
+  
+            call runtime.end()
+            call this.destroy()
+        else
+            
+            if IsTerrainPathable(x, y, PATHING_TYPE_FLOATABILITY) then
+                if .ground_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.ground_sfx, x, y))
+                endif
+            else
+                if .water_sfx != "" then 
+                    call DestroyEffect(AddSpecialEffect(.water_sfx, x, y))
+                endif
+            endif
+
+            if this.amove then
+                if Boo.iswalk(x, y) then
+                    call SetUnitX(this.u, x)
+                    call SetUnitY(this.u, y)
+                    call SetUnitFlyHeight(.u, GetUnitFlyHeight(.u) - .dh, 0)
+                endif
+            else
+                if Boo.iswalk(x, y) then
+                    call SetUnitPosition(this.u, x, y)
+                    call SetUnitFlyHeight(.u, GetUnitFlyHeight(.u) - .dh, 0)
+                endif
+            endif
+        endif
+    endmethod
+    method knock_now takes unit u, real dis, real dur, real fa, boolean AllowMove, boolean KillTree returns nothing
+        local boolean b = false
+        // call SaveInteger(ht, GetHandleId(u) , 0x281, this)
+        set this.stop = false
+        set this.amove = AllowMove
+        set this.ktree = KillTree
+        set this.fa = fa * bj_DEGTORAD
+        set this.sp = (dis / (dur / P32)) //this is speed
+        set this.u = u
+        set this.dur = dur
+        set this.h = GetUnitFlyHeight(.u) - GetUnitDefaultFlyHeight(.u)
+        set this.dh = (h / (dur / P32))
+        set .status_id = Es.Knockback
+        if not Es.is_stack(.u, .status_id, .key_id) then
+            set .stack = .stack + 1
+            set .key_id = .key_id + .stack
+            set b = Es.change_status(.u, .status_id, .key_id)
+        else
+            set b = Es.change_status(.u, .status_id, .key_id)
+        endif
+        // static if ALLOW_STACK_UNIT then
+        //     if not AllowMove then
+        //         call SetUnitPathing(this.u, false)
+        //     endif
+        // endif
+        if b then 
+            call runtime.new(this, P32, true, function thistype.KnocLooper)
+        else
+            call.destroy() // Destroy the instance   
+        endif
+    endmethod
+endstruct
