@@ -23,11 +23,14 @@ struct EV_UNIT_DEATH
         // ROADLINE_EXAMPLE , comment it if not use   
         // call FlushChildHashtable(road, hdid) 
         // 
+        if not IsUnitType(dying, UNIT_TYPE_HERO) then 
+            call FlushChildHashtable(ht, hdid)
+        endif
         if IsUnitType(dying, UNIT_TYPE_HERO) == true and pdid == 11 then 
             // loop
             //     exitwhen n > 20
-            set rd = GAME.pool_item.random()  
-            set bj_lastCreatedItem = CreateItem(rd, Unit.x(dying), Unit.y(dying))
+            // set rd = GAME.pool_item.random()  
+            // set bj_lastCreatedItem = CreateItem(rd, Unit.x(dying), Unit.y(dying))
             // call BJDebugMsg(GetItemName(bj_lastCreatedItem))
             // set n = n + 1
             // endloop

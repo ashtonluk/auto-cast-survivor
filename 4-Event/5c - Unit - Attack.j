@@ -7,6 +7,8 @@ struct Unit_Attack
         local CrossBow_Controller cb
         local Axe_Controller axe
         local Claw_Controller cl
+        local Rod_Controller rod
+        
         if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
             set atk.time = 20
@@ -89,7 +91,6 @@ struct Unit_Attack
                 set GAME.Survivor_Weapon[pid] = 'A000'
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
             endif
-           
         endif
         if abicode == 'A006' then //Cross Bow attack
             if Boo.hasitem(caster, 'I003') then //Bow item 
@@ -157,6 +158,20 @@ struct Unit_Attack
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
             endif
            
+        endif
+        if abicode == 'A009' then //Rod
+            if Boo.hasitem(caster, 'I006') then //Rod item 
+                set rod = Rod_Controller.create()
+                set rod.caster = caster 
+                set rod.time = 20
+                set rod.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 0.25) + (Hero.int(caster) * 1.00 )
+                set rod.anim = "spell"
+                call rod.spell_now()
+                // call BJDebugMsg("lightning")
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
         endif
     endmethod
 endstruct

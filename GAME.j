@@ -119,6 +119,10 @@ struct GAME
         //Will add more multilboard      
         call BlzLoadTOCFile("war3mapImported\\multiboard.toc") 
         call Preload_Ability('Amls') // Preload skill                                   
+        call Preload_Ability('A004') // Preload skill                                   
+        call Preload_Ability('A001') // Preload skill        
+        call Preload_Ability('A00A') // Preload skill        
+                                   
         call Preload_Unit('uloc') // Preload unit                                  
         call Preload_Unit('e000') // Preload dummy                                  
         call DestroyTimer(GetExpiredTimer()) 

@@ -259,8 +259,8 @@ struct Bonus
     static method apply takes unit u returns nothing 
         call .save_stat(u, .Physical, 0)
         call .save_stat(u, .Spell, 0)
-        call .save_stat(u, .Crit, 0)
-        call .save_stat(u, .CritDmg, 0)
+        call .save_stat(u, .Crit, 15)
+        call .save_stat(u, .CritDmg, 175)
         call .save_stat(u, .anim, 0)
         call .save_stat(u, .cd, 0)
     endmethod
@@ -1698,7 +1698,9 @@ struct DummyX
     static integer dummy_id = 'e000' //Set your id dummy                                     
     // static integer dummy_id = 'edry' //Set your id dummy    
     static integer stun_id = 'A001'     
+    static integer slow_id = 'A00A'     
     static integer chain_lightning_id = 'A004'                         
+    static integer raise_dead_id = 'A00B'                         
     static unit array load 
     static method new takes nothing returns nothing 
         set bj_forLoopAIndex = 0 
@@ -1741,6 +1743,19 @@ struct DummyX
         call IssueTargetOrder(dummy, "thunderbolt", u) 
         call UnitRemoveAbility(dummy, .stun_id) 
     endmethod 
+    static method slow takes unit dummy, unit u, real duration, real de_spd, real de_atk_spd returns nothing 
+        // call SetUnitX(dummy, GetUnitX(u)) 
+        // call SetUnitY(dummy, GetUnitY(u)) 
+        call UnitAddAbility(dummy, .slow_id) 
+        // call SetUnitAbilityLevel(dummy, spell_id, level) 
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_MOVEMENT_SPEED_FACTOR_SLO1, 0, de_spd)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_ATTACK_SPEED_FACTOR_SLO2, 0, de_atk_spd)
+
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_DURATION_NORMAL, 0, duration)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_DURATION_HERO, 0, duration)
+        call IssueTargetOrder(dummy, "slow", u) 
+        call UnitRemoveAbility(dummy, .slow_id) 
+    endmethod 
     static method chain_lightning takes unit dummy, unit target, real reduce_by_target, real damage, integer num_target returns nothing 
         // call UnitAddAbility(dummy, .chain_lightning_id) 
         call SetUnitAbilityLevel(dummy, .chain_lightning_id, 0) 
@@ -1750,6 +1765,19 @@ struct DummyX
         call IssueTargetOrder(dummy, "chainlightning", target) 
         // call UnitRemoveAbility(dummy, .chain_lightning_id) 
     endmethod
+    static method raise_dead takes unit dummy , integer first_sum , integer num1, integer sec_sum , integer num2, real duration returns nothing 
+        // call UnitAddAbility(dummy, .raise_dead_id) 
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNIT_TYPE_FOR_LIMIT_CHECK, 0, first_sum )
+        call BlzSetAbilityStringLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_SLF_UNIT_TYPE_ONE, 0, I2S(first_sum) )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNITS_SUMMONED_TYPE_ONE, 0, num1 )
+        call BlzSetAbilityStringLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_SLF_UNIT_TYPE_TWO, 0, I2S(sec_sum) )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNITS_SUMMONED_TYPE_TWO, 0, num2 )
+
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .raise_dead_id) , ABILITY_RLF_DURATION_NORMAL, 0, duration)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .raise_dead_id) , ABILITY_RLF_DURATION_HERO, 0, duration)
+        call IssueImmediateOrder(dummy, "instant") 
+        // call UnitRemoveAbility(dummy, .raise_dead_id) 
+    endmethod 
     static method point takes string ordername, unit dummy, real x, real y, integer level, integer spell_id returns nothing 
         // call SetUnitX(dummy, x)     
         // call SetUnitY(dummy, y)     
@@ -4007,6 +4035,78 @@ struct Wand_Lightning_Controller extends SKILL
     endmethod 
 endstruct
 
+struct Rod_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+           
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if .time == 1 then 
+            loop
+                exitwhen n > 8
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    call Eff.attach("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", bj_unit, "origin")
+                    call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(bj_unit))
+                    call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(bj_unit))
+                    call DummyX.slow(DummyX.load[Num.uid( .caster)], bj_unit, 4.00, 0.25, 0.25)
+             
+                    call UnitDamageTarget(.caster, bj_unit, .dmg, true, true, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, null) 
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+        endif
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
+            call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(caster))
+            call DummyX.raise_dead(DummyX.load[Num.uid( .caster)], 'uske', 1, 0, 0, 24.00)
+       
+  
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
 struct CrossBow_Controller extends SKILL 
     string attach = ""
     string attach_path = ""
@@ -4472,11 +4572,14 @@ struct EV_UNIT_DEATH
         // ROADLINE_EXAMPLE , comment it if not use   
         // call FlushChildHashtable(road, hdid) 
         // 
+        if not IsUnitType(dying, UNIT_TYPE_HERO) then 
+            call FlushChildHashtable(ht, hdid)
+        endif
         if IsUnitType(dying, UNIT_TYPE_HERO) == true and pdid == 11 then 
             // loop
             //     exitwhen n > 20
-            set rd = GAME.pool_item.random()  
-            set bj_lastCreatedItem = CreateItem(rd, Unit.x(dying), Unit.y(dying))
+            // set rd = GAME.pool_item.random()  
+            // set bj_lastCreatedItem = CreateItem(rd, Unit.x(dying), Unit.y(dying))
             // call BJDebugMsg(GetItemName(bj_lastCreatedItem))
             // set n = n + 1
             // endloop
@@ -4564,7 +4667,8 @@ struct EV_START_SPELL_EFFECT
                 set timed = 2.5
             elseif GAME.Survivor_Weapon[pid] == 'A008' then //Claw
                 set timed = 2.0
-                
+            elseif GAME.Survivor_Weapon[pid] == 'A009' then //Rod
+                set timed = 3.0
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
@@ -4576,7 +4680,7 @@ struct EV_START_SPELL_EFFECT
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'  or abicode == 'A009'then 
             set GAME.Survivor_Weapon[pid] = abicode
         endif
 
@@ -4622,6 +4726,8 @@ struct Unit_Attack
         local CrossBow_Controller cb
         local Axe_Controller axe
         local Claw_Controller cl
+        local Rod_Controller rod
+        
         if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
             set atk.time = 20
@@ -4704,7 +4810,6 @@ struct Unit_Attack
                 set GAME.Survivor_Weapon[pid] = 'A000'
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
             endif
-           
         endif
         if abicode == 'A006' then //Cross Bow attack
             if Boo.hasitem(caster, 'I003') then //Bow item 
@@ -4773,8 +4878,43 @@ struct Unit_Attack
             endif
            
         endif
+        if abicode == 'A009' then //Rod
+            if Boo.hasitem(caster, 'I006') then //Rod item 
+                set rod = Rod_Controller.create()
+                set rod.caster = caster 
+                set rod.time = 20
+                set rod.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 0.25) + (Hero.int(caster) * 1.00 )
+                set rod.anim = "spell"
+                call rod.spell_now()
+                // call BJDebugMsg("lightning")
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+        endif
     endmethod
 endstruct
+
+//--- Content from folder: ./4-Event/5d- Unit - Summoned.j ---
+
+struct EV_UNIT_SUMMON
+    static method f_Checking takes nothing returns boolean 
+        local unit summoned = GetSummonedUnit()
+        local integer idc = GetUnitTypeId(summoned) 
+        local integer pid = Num.uid(summoned) 
+        call SaveUnitHandle(ht, GetHandleId(summoned), StringHash("owner"), GAME.Survivor[pid])
+        call BJDebugMsg(GetUnitName(summoned))
+        set summoned = null 
+        return false 
+    endmethod 
+    static method f_SetupEvent takes nothing returns nothing 
+        local trigger t = CreateTrigger() 
+        call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SUMMON ) 
+        call TriggerAddAction(t, function thistype.f_Checking) 
+    endmethod 
+
+endstruct 
+
 
 //--- Content from folder: ./4-Event/6 - Hero - LearnSpell.j ---
 struct EV_LEARN_SKILL 
@@ -4882,10 +5022,11 @@ struct REGISTER_EVENT
         call EV_UNIT_DEATH.f_SetupEvent()
         call EV_UNIT_ATTACK.f_SetupEvent()
         call EV_UNIT_SELL.f_SetupEvent()
+        call EV_UNIT_SUMMON.f_SetupEvent()
 
         call EV_PLAYER_LEAVES.f_SetupEvent()
         call EV_PLAYER_CHAT.f_SetupEvent()
-
+        
         call DestroyTimer(GetExpiredTimer()) 
     endmethod
     static method regKey takes oskeytype hotkey, code func returns nothing
@@ -5613,6 +5754,10 @@ struct GAME
         //Will add more multilboard      
         call BlzLoadTOCFile("war3mapImported\\multiboard.toc") 
         call Preload_Ability('Amls') // Preload skill                                   
+        call Preload_Ability('A004') // Preload skill                                   
+        call Preload_Ability('A001') // Preload skill        
+        call Preload_Ability('A00A') // Preload skill        
+                                   
         call Preload_Unit('uloc') // Preload unit                                  
         call Preload_Unit('e000') // Preload dummy                                  
         call DestroyTimer(GetExpiredTimer()) 

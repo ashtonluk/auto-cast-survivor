@@ -1,3 +1,8 @@
  - Spawn quái 
  - Pick Hero
  - ITem
+
+ - Công trình:
+ - Rock sealed : Hồi sinh đơn lẻ 1 đồng minh. Tăng tầm nhìn : Sửa chữa 30 đá
+ - Tower x3: Sửa chữa 15 đá
+ 

@@ -48,8 +48,8 @@ struct Bonus
     static method apply takes unit u returns nothing 
         call .save_stat(u, .Physical, 0)
         call .save_stat(u, .Spell, 0)
-        call .save_stat(u, .Crit, 0)
-        call .save_stat(u, .CritDmg, 0)
+        call .save_stat(u, .Crit, 15)
+        call .save_stat(u, .CritDmg, 175)
         call .save_stat(u, .anim, 0)
         call .save_stat(u, .cd, 0)
     endmethod
