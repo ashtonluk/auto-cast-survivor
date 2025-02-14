@@ -2944,78 +2944,78 @@ endstruct
 
 
 
-// struct RotatingBullet extends SKILL
-//     real rotationSpeed   // Tốc độ quay
-//     real radius
+struct RotatingBullet extends SKILL
+    real rotationSpeed   // Tốc độ quay
+    real radius
 
-//     // Khởi tạo một viên đạn
-//     method spell_now takes nothing returns nothing
-//         local real x = GetUnitX(caster)
-//         local real y = GetUnitY(caster)
+    // Khởi tạo một viên đạn
+    method spell_now takes nothing returns nothing
+        local real x = GetUnitX(caster)
+        local real y = GetUnitY(caster)
 
-//         // Thiết lập giá trị
-//         // set this.caster = caster
-//         // set this.a = angle
-//         // set this.rotationSpeed = 360
-//         // set this.aoe = 600
-//         // set this.dmg = DAMAGE
-//         // set this.time = 32
+        // Thiết lập giá trị
+        // set this.caster = caster
+        // set this.a = angle
+        // set this.rotationSpeed = 360
+        // set this.aoe = 600
+        // set this.dmg = DAMAGE
+        // set this.time = 32
 
-//         // Tạo hiệu ứng
-//         set this.missle = AddSpecialEffect(.missle_path, x, y)
+        // Tạo hiệu ứng
+        set this.missle = AddSpecialEffect(.missle_path, x, y)
 
-//         call runtime.new(this, P32, true, function thistype.move) 
-//     endmethod
-//     // Cập nhật vị trí và xử lý va chạm
-//     private static method move takes nothing returns nothing
-//         local timer t = GetExpiredTimer()
-//         local thistype this = runtime.get() 
-//         local real casterX = GetUnitX(this.caster)
-//         local real casterY = GetUnitY(this.caster)
-//         local real newX
-//         local real newY
-//         local group g = null 
-//         local unit e = null
-//         if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
-//             call DestroyEffect(.missle)
-//             call runtime.end() // End the timer                                                                                                                                                                                                       
-//             call.destroy() // Destroy the instance 
-//         endif
-//         // Cập nhật góc và tính toán vị trí mới
-//         set this.a = this.a + this.rotationSpeed * P32
-//         if this.a >= 360 then
-//             set this.a = this.a - 360
-//         endif
+        call runtime.new(this, P32, true, function thistype.move) 
+    endmethod
+    // Cập nhật vị trí và xử lý va chạm
+    private static method move takes nothing returns nothing
+        local timer t = GetExpiredTimer()
+        local thistype this = runtime.get() 
+        local real casterX = GetUnitX(this.caster)
+        local real casterY = GetUnitY(this.caster)
+        local real newX
+        local real newY
+        local group g = null 
+        local unit e = null
+        if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        // Cập nhật góc và tính toán vị trí mới
+        set this.a = this.a + this.rotationSpeed * P32
+        if this.a >= 360 then
+            set this.a = this.a - 360
+        endif
 
-//         set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
-//         set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+        set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+        set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
 
-//         // Cập nhật vị trí hiệu ứng
-//         call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
-//         call Eff.angle(.missle, .a + 90)
+        // Cập nhật vị trí hiệu ứng
+        call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
+        call Eff.angle(.missle, .a + 90)
 
-//         set g = CreateGroup() 
-//         call Group.enum(g, newX, newY, .aoe) 
-//         loop 
-//             set e = FirstOfGroup(g) 
-//             exitwhen(e == null or.is_touch == true)
-//             if not.is_touch and.FilterUnit( .caster, e) then 
-//                 set.is_touch = true 
-//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
-//             endif 
-//             call Group.remove(e, g) 
-//         endloop 
-//         call Group.release(g) 
-//         set e = null 
-//         set .time = .time - 1 
+        set g = CreateGroup() 
+        call Group.enum(g, newX, newY, .aoe) 
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen(e == null or.is_touch == true)
+            if not.is_touch and.FilterUnit( .caster, e) then 
+                set.is_touch = true 
+                call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+            endif 
+            call Group.remove(e, g) 
+        endloop 
+        call Group.release(g) 
+        set e = null 
+        set .time = .time - 1 
  
-//         if.time <= 0  or .is_touch then 
-//             call DestroyEffect(.missle)
-//             call runtime.end() // End the timer                                                                                                                                                                                                       
-//             call.destroy() // Destroy the instance                                                                   
-//         endif 
-//     endmethod
-// endstruct
+        if.time <= 0  or .is_touch then 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod
+endstruct
 
 
 // struct Missile_Rain2 extends SKILL
@@ -3345,7 +3345,83 @@ endstruct
 //         return false 
 //     endmethod 
 // endstruct
+struct RotatingBulletPierce extends SKILL
+    real rotationSpeed   // Tốc độ quay
+    real radius
+    string attach_path = ""
+    string attach = ""
 
+    // Khởi tạo một viên đạn
+    method spell_now takes nothing returns nothing
+        local real x = GetUnitX(caster)
+        local real y = GetUnitY(caster)
+        set .g = CreateGroup()
+        // Thiết lập giá trị
+        // set this.caster = caster
+        // set this.a = angle
+        // set this.rotationSpeed = 360
+        // set this.aoe = 600
+        // set this.dmg = DAMAGE
+        // set this.time = 32
+        // set this.radius = 32
+        
+        // Tạo hiệu ứng
+        set this.missle = Eff.new(.missle_path, x, y, Math.pz(x, y) + .z)
+        call Eff.size(.missle, .missle_size)
+        call runtime.new(this, P32, true, function thistype.move) 
+    endmethod
+    // Cập nhật vị trí và xử lý va chạm
+    private static method move takes nothing returns nothing
+        local thistype this = runtime.get() 
+        local real casterX = GetUnitX(this.caster)
+        local real casterY = GetUnitY(this.caster)
+        local real newX
+        local real newY
+        local group g = null 
+        local unit e = null
+        if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
+            call Group.release(.g) 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        // Cập nhật góc và tính toán vị trí mới
+        set this.a = this.a + this.rotationSpeed * P32
+        if this.a >= 360 then
+            set this.a = this.a - 360
+        endif
+
+        set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+        set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+
+        // Cập nhật vị trí hiệu ứng
+        call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
+        call Eff.angle(.missle, .a + 90)
+
+        set g = CreateGroup() 
+        call Group.enum(g, newX, newY, .aoe) 
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen(e == null or.is_touch == true)
+            if not IsUnitInGroup(e, .g) and.FilterUnit( .caster, e) then 
+                call Group.add(e, .g)
+                call Eff.attach( .attach_path, e, .attach)
+                call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+            endif 
+            call Group.remove(e, g) 
+        endloop 
+        call Group.release(g) 
+        set e = null 
+        set .time = .time - 1 
+ 
+        if.time <= 0  then 
+            call Group.release(.g) 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod
+endstruct
 
 
 struct Es //Escape
@@ -3868,6 +3944,8 @@ struct Staff_Fire_Controller extends SKILL
         return false 
     endmethod 
 endstruct
+
+
 struct Wand_Lightning_Controller extends SKILL 
     string anim = ""
     integer start_anim = 0
@@ -3929,7 +4007,226 @@ struct Wand_Lightning_Controller extends SKILL
     endmethod 
 endstruct
 
+struct CrossBow_Controller extends SKILL 
+    string attach = ""
+    string attach_path = ""
+    string anim = ""
+    integer start_anim = 0
+    integer time_bow = 0
 
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local Missle_Touch mt
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            call SetUnitTimeScale(.caster, 1)
+
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        if.time == 64 then 
+            call Unit.enabledmove(this.caster)
+            call SetUnitTimeScale(.caster, 3)
+        endif
+        if .time <= 64  and ModuloInteger(.time, 16) == 0 then 
+            call QueueUnitAnimation(.caster, "attack")
+            set mt = Missle_Touch.create()
+            set mt.caster = .caster
+            set mt.time = .time_bow
+            set mt.is_touch = false
+            set mt.speed = .speed
+            set mt.aoe = .aoe
+            set mt.a = GetUnitFacing(.caster) + (RAbsBJ(GetUnitFacing(.caster)) - RAbsBJ(GetUnitFacing(.caster)))
+            call mt.setxyz(GetUnitX( .caster) , GetUnitY( .caster) , .z)
+            set mt.DMG_TYPE = .DMG_TYPE 
+            set mt.ATK_TYPE = .ATK_TYPE 
+            set mt.dmg = .dmg
+            set mt.missle_path = .missle_path
+            set mt.missle_size = .missle_size
+            set mt.attach = .attach
+            set mt.attach_path = .attach_path
+            call mt.spell_now()
+        endif
+        set.time = .time - 1 
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            call SetUnitTimeScale(.caster, 1)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .time = 84
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+struct Axe_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    string attach = ""
+    string attach_path = ""
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        local RotatingBulletPierce rbp
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+            set rbp = RotatingBulletPierce.create()
+            set rbp.caster = .caster
+            set rbp.a = quickcast.getUA(.caster) - 60
+            set rbp.rotationSpeed = 240
+            set rbp.ATK_TYPE = .ATK_TYPE
+            set rbp.DMG_TYPE = .DMG_TYPE
+            set rbp.aoe = .aoe
+            set rbp.radius = 195
+            set rbp.dmg = .dmg
+            set rbp.time = 24
+            set rbp.z = 100
+            set rbp.missle_path = .missle_path
+            set rbp.missle_size = .missle_size
+            set rbp.attach = .attach
+            set rbp.attach_path = .attach_path
+            call rbp.spell_now()
+        endif
+
+        set.time = .time - 1 
+        if.time <= 0  then 
+           
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+struct Claw_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    string attach = ""
+    string attach_path = ""
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        local RotatingBulletPierce rbp
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        if.time == .start_anim then 
+            set bj_lastCreatedEffect = AddSpecialEffect("Weapon\\Claws.mdx", Unit.x(.caster), Unit.y(.caster)) 
+            // call BlzSetSpecialEffectOrientation(bj_lastCreatedEffect, Deg2Rad(GetUnitFacing( .caster)) , 0, Deg2Rad(- 45)) 
+            call BlzSetSpecialEffectHeight(bj_lastCreatedEffect, Math.pz( Unit.x(.caster), Unit.y(.caster)) - 50) 
+            call BlzSetSpecialEffectTimeScale(bj_lastCreatedEffect, 0.8) 
+            call DestroyEffect(bj_lastCreatedEffect) 
+        
+            call SetUnitAnimation(.caster, .anim)
+            set rbp = RotatingBulletPierce.create()
+            set rbp.caster = .caster
+            set rbp.a = quickcast.getUA(.caster) - 60
+            set rbp.rotationSpeed = 240
+            set rbp.ATK_TYPE = .ATK_TYPE
+            set rbp.DMG_TYPE = .DMG_TYPE
+            set rbp.aoe = .aoe
+            set rbp.radius = 195
+            set rbp.dmg = .dmg
+            set rbp.time = 24
+            set rbp.z = 100
+            set rbp.missle_path = .missle_path
+            set rbp.missle_size = .missle_size
+            set rbp.attach = .attach
+            set rbp.attach_path = .attach_path
+            call rbp.spell_now()
+        endif
+
+        set.time = .time - 1 
+        if.time <= 0  then 
+            set bj_lastCreatedEffect = AddSpecialEffect("Weapon\\Claws.mdx", Unit.x(.caster), Unit.y(.caster)) 
+            // call BlzSetSpecialEffectOrientation(bj_lastCreatedEffect, Deg2Rad(GetUnitFacing( .caster)) , 0, Deg2Rad(- 135)) 
+            call BlzSetSpecialEffectHeight(bj_lastCreatedEffect, Math.pz( Unit.x(.caster), Unit.y(.caster)) - 50) 
+            call BlzSetSpecialEffectTimeScale(bj_lastCreatedEffect, 0.65) 
+            call DestroyEffect(bj_lastCreatedEffect) 
+
+            call SetUnitAnimation(.caster, .anim)
+            call Unit.enabledmove(this.caster)
+            set rbp = RotatingBulletPierce.create()
+            set rbp.caster = .caster
+            set rbp.a = quickcast.getUA(.caster) - 60
+            set rbp.rotationSpeed = 240
+            set rbp.ATK_TYPE = .ATK_TYPE
+            set rbp.DMG_TYPE = .DMG_TYPE
+            set rbp.aoe = .aoe
+            set rbp.radius = 165
+            set rbp.dmg = .dmg
+            set rbp.time = 24
+            set rbp.z = 100
+            set rbp.missle_path = .missle_path
+            set rbp.missle_size = .missle_size
+            set rbp.attach = .attach
+            set rbp.attach_path = .attach_path
+            call rbp.spell_now()
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
 
 //--- Content from folder: ./4-Event/1 - Unit - BeginConstruction.j ---
 struct EV_BEGIN_STRUCTION 
@@ -4259,18 +4556,27 @@ struct EV_START_SPELL_EFFECT
                 set timed = 1.80
             elseif GAME.Survivor_Weapon[pid] == 'A003' then //Staff of Fire
                 set timed = 2.2
+            elseif GAME.Survivor_Weapon[pid] == 'A005' then //Wand of lightning
+                set timed = 2.2
+            elseif GAME.Survivor_Weapon[pid] == 'A006' then //Crossbow
+                set timed = 4.2
+            elseif GAME.Survivor_Weapon[pid] == 'A007' then //Axe
+                set timed = 2.5
+            elseif GAME.Survivor_Weapon[pid] == 'A008' then //Claw
+                set timed = 2.0
+                
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
             endif
-            call .attack(caster, GAME.Survivor_Weapon[pid], pid )
+            call Unit_Attack.attack(caster, GAME.Survivor_Weapon[pid], pid )
         endif
         if abicode == 'A001' then 
             call .jump(caster, abicode)
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'then 
             set GAME.Survivor_Weapon[pid] = abicode
         endif
 
@@ -4296,11 +4602,26 @@ struct EV_START_SPELL_EFFECT
             call jump.now()
         endif
     endmethod
+   
+    static method f_SetupEvent takes nothing returns nothing 
+        local trigger t = CreateTrigger() 
+        call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT) 
+        call TriggerAddAction(t, function thistype.f_Checking) 
+    endmethod 
+endstruct 
+
+
+
+//--- Content from folder: ./4-Event/5c - Unit - Attack.j ---
+struct Unit_Attack 
     static method attack takes unit caster , integer abicode , integer pid returns nothing
         local Attack_Controller atk 
         local Bow_Controller bow 
         local Staff_Fire_Controller sf 
         local Wand_Lightning_Controller wl
+        local CrossBow_Controller cb
+        local Axe_Controller axe
+        local Claw_Controller cl
         if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
             set atk.time = 20
@@ -4385,31 +4706,75 @@ struct EV_START_SPELL_EFFECT
             endif
            
         endif
-        // local unit e = null 
-        // local group g = CreateGroup() 
-        // call Eff.new( "Abilities\\Spells\\Orc\\WarStomp\\WarStompCaster.mdl", x, y, Math.pz(x, y))
-        // call Eff.size(bj_eff, 0.45)
-        // call DestroyEffect(bj_eff)
-        // call Group.enum(g, x, y, aoe) 
-        // loop 
-        //     set e = FirstOfGroup(g) 
-        //     exitwhen e == null 
-        //     if not Boo.isdead(e)  and IsUnitEnemy(caster, GetOwningPlayer(e)) and BlzIsUnitInvulnerable(e) == false then 
-        //         call UnitDamageTarget(caster, e, dmg, true, true, ATTACK_TYPE_HERO, DAMAGE_TYPE_NORMAL, null) 
-        //     endif 
-        //     call Group.remove(e, g) 
-        // endloop 
-        // call Group.release(g) 
-        // set e = null 
+        if abicode == 'A006' then //Cross Bow attack
+            if Boo.hasitem(caster, 'I003') then //Bow item 
+                set cb = CrossBow_Controller.create()
+                set cb.time_bow = 30
+                set cb.caster = caster 
+                set cb.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                set cb.ATK_TYPE = ATTACK_TYPE_HERO
+                set cb.dmg = (Hero.str(caster) * 1 ) + (Hero.agi(caster) * 1) + (Hero.int(caster) * 0.15 )
+                set cb.speed = 20
+                set cb.aoe = 65 
+                set cb.z = 100 
+                set cb.missle_path = "Abilities\\Weapons\\Arrow\\ArrowMissile.mdl" 
+                set cb.missle_size = 1.5
+                set cb.anim = "attack"
+                set cb.attach = "chest"
+                set cb.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
+                call cb.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+           
+        endif
+        if abicode == 'A007' then //Axe
+            if Boo.hasitem(caster, 'I004') then //Axe item 
+                set axe = Axe_Controller.create()
+                set axe.caster = caster 
+                set axe.time = 20 
+                set axe.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                set axe.ATK_TYPE = ATTACK_TYPE_HERO
+                set axe.dmg = (Hero.str(caster) * 1.85 ) + (Hero.agi(caster) * 0.55) + (Hero.int(caster) * 0.35 )
+                set axe.aoe = 100 
+                set axe.z = 100 
+                set axe.missle_path = "Abilities\\Weapons\\PhoenixMissile\\Phoenix_Missile_mini.mdl"
+                set axe.missle_size = 2.5
+                set axe.anim = "attack"
+                set axe.attach = "chest"
+                set axe.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
+                call axe.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+           
+        endif
+        if abicode == 'A008' then //Claw
+            if Boo.hasitem(caster, 'I005') then //Claw item 
+                set cl = Claw_Controller.create()
+                set cl.caster = caster 
+                set cl.time = 20 
+                set cl.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                set cl.ATK_TYPE = ATTACK_TYPE_HERO
+                set cl.dmg = (Hero.str(caster) * 0.45 ) + (Hero.agi(caster) * 0.9) + (Hero.int(caster) * 0.25 )
+                set cl.aoe = 120 
+                set cl.z = 100 
+                set cl.missle_path = ""
+                set cl.missle_size = 1
+                set cl.anim = "attack"
+                set cl.attach = "chest"
+                set cl.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
+                call cl.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+           
+        endif
     endmethod
-    static method f_SetupEvent takes nothing returns nothing 
-        local trigger t = CreateTrigger() 
-        call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT) 
-        call TriggerAddAction(t, function thistype.f_Checking) 
-    endmethod 
-endstruct 
-
-
+endstruct
 
 //--- Content from folder: ./4-Event/6 - Hero - LearnSpell.j ---
 struct EV_LEARN_SKILL 

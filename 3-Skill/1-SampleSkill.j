@@ -765,78 +765,78 @@ endstruct
 
 
 
-// struct RotatingBullet extends SKILL
-//     real rotationSpeed   // Tốc độ quay
-//     real radius
+struct RotatingBullet extends SKILL
+    real rotationSpeed   // Tốc độ quay
+    real radius
 
-//     // Khởi tạo một viên đạn
-//     method spell_now takes nothing returns nothing
-//         local real x = GetUnitX(caster)
-//         local real y = GetUnitY(caster)
+    // Khởi tạo một viên đạn
+    method spell_now takes nothing returns nothing
+        local real x = GetUnitX(caster)
+        local real y = GetUnitY(caster)
 
-//         // Thiết lập giá trị
-//         // set this.caster = caster
-//         // set this.a = angle
-//         // set this.rotationSpeed = 360
-//         // set this.aoe = 600
-//         // set this.dmg = DAMAGE
-//         // set this.time = 32
+        // Thiết lập giá trị
+        // set this.caster = caster
+        // set this.a = angle
+        // set this.rotationSpeed = 360
+        // set this.aoe = 600
+        // set this.dmg = DAMAGE
+        // set this.time = 32
 
-//         // Tạo hiệu ứng
-//         set this.missle = AddSpecialEffect(.missle_path, x, y)
+        // Tạo hiệu ứng
+        set this.missle = AddSpecialEffect(.missle_path, x, y)
 
-//         call runtime.new(this, P32, true, function thistype.move) 
-//     endmethod
-//     // Cập nhật vị trí và xử lý va chạm
-//     private static method move takes nothing returns nothing
-//         local timer t = GetExpiredTimer()
-//         local thistype this = runtime.get() 
-//         local real casterX = GetUnitX(this.caster)
-//         local real casterY = GetUnitY(this.caster)
-//         local real newX
-//         local real newY
-//         local group g = null 
-//         local unit e = null
-//         if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
-//             call DestroyEffect(.missle)
-//             call runtime.end() // End the timer                                                                                                                                                                                                       
-//             call.destroy() // Destroy the instance 
-//         endif
-//         // Cập nhật góc và tính toán vị trí mới
-//         set this.a = this.a + this.rotationSpeed * P32
-//         if this.a >= 360 then
-//             set this.a = this.a - 360
-//         endif
+        call runtime.new(this, P32, true, function thistype.move) 
+    endmethod
+    // Cập nhật vị trí và xử lý va chạm
+    private static method move takes nothing returns nothing
+        local timer t = GetExpiredTimer()
+        local thistype this = runtime.get() 
+        local real casterX = GetUnitX(this.caster)
+        local real casterY = GetUnitY(this.caster)
+        local real newX
+        local real newY
+        local group g = null 
+        local unit e = null
+        if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        // Cập nhật góc và tính toán vị trí mới
+        set this.a = this.a + this.rotationSpeed * P32
+        if this.a >= 360 then
+            set this.a = this.a - 360
+        endif
 
-//         set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
-//         set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+        set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+        set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
 
-//         // Cập nhật vị trí hiệu ứng
-//         call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
-//         call Eff.angle(.missle, .a + 90)
+        // Cập nhật vị trí hiệu ứng
+        call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
+        call Eff.angle(.missle, .a + 90)
 
-//         set g = CreateGroup() 
-//         call Group.enum(g, newX, newY, .aoe) 
-//         loop 
-//             set e = FirstOfGroup(g) 
-//             exitwhen(e == null or.is_touch == true)
-//             if not.is_touch and.FilterUnit( .caster, e) then 
-//                 set.is_touch = true 
-//                 call dmg.mag( .caster, e, .DMG_TYPE, .dmg)
-//             endif 
-//             call Group.remove(e, g) 
-//         endloop 
-//         call Group.release(g) 
-//         set e = null 
-//         set .time = .time - 1 
+        set g = CreateGroup() 
+        call Group.enum(g, newX, newY, .aoe) 
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen(e == null or.is_touch == true)
+            if not.is_touch and.FilterUnit( .caster, e) then 
+                set.is_touch = true 
+                call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+            endif 
+            call Group.remove(e, g) 
+        endloop 
+        call Group.release(g) 
+        set e = null 
+        set .time = .time - 1 
  
-//         if.time <= 0  or .is_touch then 
-//             call DestroyEffect(.missle)
-//             call runtime.end() // End the timer                                                                                                                                                                                                       
-//             call.destroy() // Destroy the instance                                                                   
-//         endif 
-//     endmethod
-// endstruct
+        if.time <= 0  or .is_touch then 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod
+endstruct
 
 
 // struct Missile_Rain2 extends SKILL
@@ -1166,7 +1166,83 @@ endstruct
 //         return false 
 //     endmethod 
 // endstruct
+struct RotatingBulletPierce extends SKILL
+    real rotationSpeed   // Tốc độ quay
+    real radius
+    string attach_path = ""
+    string attach = ""
 
+    // Khởi tạo một viên đạn
+    method spell_now takes nothing returns nothing
+        local real x = GetUnitX(caster)
+        local real y = GetUnitY(caster)
+        set .g = CreateGroup()
+        // Thiết lập giá trị
+        // set this.caster = caster
+        // set this.a = angle
+        // set this.rotationSpeed = 360
+        // set this.aoe = 600
+        // set this.dmg = DAMAGE
+        // set this.time = 32
+        // set this.radius = 32
+        
+        // Tạo hiệu ứng
+        set this.missle = Eff.new(.missle_path, x, y, Math.pz(x, y) + .z)
+        call Eff.size(.missle, .missle_size)
+        call runtime.new(this, P32, true, function thistype.move) 
+    endmethod
+    // Cập nhật vị trí và xử lý va chạm
+    private static method move takes nothing returns nothing
+        local thistype this = runtime.get() 
+        local real casterX = GetUnitX(this.caster)
+        local real casterY = GetUnitY(this.caster)
+        local real newX
+        local real newY
+        local group g = null 
+        local unit e = null
+        if Boo.isdead( .caster)  then // Unit chết thì ko làm gì
+            call Group.release(.g) 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        // Cập nhật góc và tính toán vị trí mới
+        set this.a = this.a + this.rotationSpeed * P32
+        if this.a >= 360 then
+            set this.a = this.a - 360
+        endif
+
+        set newX = casterX + this.radius * Cos(this.a * bj_DEGTORAD)
+        set newY = casterY + this.radius * Sin(this.a * bj_DEGTORAD)
+
+        // Cập nhật vị trí hiệu ứng
+        call Eff.pos( .missle, newX, newY, Math.pz( newX, newY) + .z) 
+        call Eff.angle(.missle, .a + 90)
+
+        set g = CreateGroup() 
+        call Group.enum(g, newX, newY, .aoe) 
+        loop 
+            set e = FirstOfGroup(g) 
+            exitwhen(e == null or.is_touch == true)
+            if not IsUnitInGroup(e, .g) and.FilterUnit( .caster, e) then 
+                call Group.add(e, .g)
+                call Eff.attach( .attach_path, e, .attach)
+                call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+            endif 
+            call Group.remove(e, g) 
+        endloop 
+        call Group.release(g) 
+        set e = null 
+        set .time = .time - 1 
+ 
+        if.time <= 0  then 
+            call Group.release(.g) 
+            call DestroyEffect(.missle)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod
+endstruct
 
 
 struct Es //Escape
