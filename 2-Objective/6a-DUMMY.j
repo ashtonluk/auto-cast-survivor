@@ -10,7 +10,9 @@ struct DummyX
     static integer dummy_id = 'e000' //Set your id dummy                                     
     // static integer dummy_id = 'edry' //Set your id dummy    
     static integer stun_id = 'A001'     
+    static integer slow_id = 'A00A'     
     static integer chain_lightning_id = 'A004'                         
+    static integer raise_dead_id = 'A00B'                         
     static unit array load 
     static method new takes nothing returns nothing 
         set bj_forLoopAIndex = 0 
@@ -53,6 +55,19 @@ struct DummyX
         call IssueTargetOrder(dummy, "thunderbolt", u) 
         call UnitRemoveAbility(dummy, .stun_id) 
     endmethod 
+    static method slow takes unit dummy, unit u, real duration, real de_spd, real de_atk_spd returns nothing 
+        // call SetUnitX(dummy, GetUnitX(u)) 
+        // call SetUnitY(dummy, GetUnitY(u)) 
+        call UnitAddAbility(dummy, .slow_id) 
+        // call SetUnitAbilityLevel(dummy, spell_id, level) 
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_MOVEMENT_SPEED_FACTOR_SLO1, 0, de_spd)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_ATTACK_SPEED_FACTOR_SLO2, 0, de_atk_spd)
+
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_DURATION_NORMAL, 0, duration)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .slow_id) , ABILITY_RLF_DURATION_HERO, 0, duration)
+        call IssueTargetOrder(dummy, "slow", u) 
+        call UnitRemoveAbility(dummy, .slow_id) 
+    endmethod 
     static method chain_lightning takes unit dummy, unit target, real reduce_by_target, real damage, integer num_target returns nothing 
         // call UnitAddAbility(dummy, .chain_lightning_id) 
         call SetUnitAbilityLevel(dummy, .chain_lightning_id, 0) 
@@ -62,6 +77,19 @@ struct DummyX
         call IssueTargetOrder(dummy, "chainlightning", target) 
         // call UnitRemoveAbility(dummy, .chain_lightning_id) 
     endmethod
+    static method raise_dead takes unit dummy , integer first_sum , integer num1, integer sec_sum , integer num2, real duration returns nothing 
+        // call UnitAddAbility(dummy, .raise_dead_id) 
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNIT_TYPE_FOR_LIMIT_CHECK, 0, first_sum )
+        call BlzSetAbilityStringLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_SLF_UNIT_TYPE_ONE, 0, I2S(first_sum) )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNITS_SUMMONED_TYPE_ONE, 0, num1 )
+        call BlzSetAbilityStringLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_SLF_UNIT_TYPE_TWO, 0, I2S(sec_sum) )
+        call BlzSetAbilityIntegerLevelFieldBJ( BlzGetUnitAbility(dummy, .raise_dead_id), ABILITY_ILF_UNITS_SUMMONED_TYPE_TWO, 0, num2 )
+
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .raise_dead_id) , ABILITY_RLF_DURATION_NORMAL, 0, duration)
+        call BlzSetAbilityRealLevelFieldBJ(BlzGetUnitAbility(dummy, .raise_dead_id) , ABILITY_RLF_DURATION_HERO, 0, duration)
+        call IssueImmediateOrder(dummy, "instant") 
+        // call UnitRemoveAbility(dummy, .raise_dead_id) 
+    endmethod 
     static method point takes string ordername, unit dummy, real x, real y, integer level, integer spell_id returns nothing 
         // call SetUnitX(dummy, x)     
         // call SetUnitY(dummy, y)     

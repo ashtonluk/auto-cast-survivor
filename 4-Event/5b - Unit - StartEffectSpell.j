@@ -39,7 +39,12 @@ struct EV_START_SPELL_EFFECT
                 set timed = 2.5
             elseif GAME.Survivor_Weapon[pid] == 'A008' then //Claw
                 set timed = 2.0
-                
+            elseif GAME.Survivor_Weapon[pid] == 'A009' then //Rod
+                set timed = 10.0
+            elseif GAME.Survivor_Weapon[pid] == 'A00C' then //Dagger
+                set timed = 1.8
+            elseif GAME.Survivor_Weapon[pid] == 'A00D' then //Shield
+                set timed = 3.2
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
@@ -51,8 +56,9 @@ struct EV_START_SPELL_EFFECT
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'  or abicode == 'A009' or abicode == 'A00C' or abicode == 'A00D' then 
             set GAME.Survivor_Weapon[pid] = abicode
+            // call SaveInteger(ht, GetHandleId(caster), GAME.Weapon, abicode)
         endif
 
 

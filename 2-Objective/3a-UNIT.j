@@ -10,15 +10,18 @@ struct Unit
     static method z takes unit u returns real 
         return GetUnitFlyHeight(u) 
     endmethod 
-    method setx takes unit u, real x returns nothing 
+    static method face takes unit u, real a returns nothing 
+        call SetUnitFacing(u, a) 
+    endmethod 
+    static method setx takes unit u, real x returns nothing 
         call SetUnitX(u, x) 
     endmethod 
-    method sety takes unit u, real y returns nothing 
+    static method sety takes unit u, real y returns nothing 
         call SetUnitY(u, y) 
     endmethod 
     // Set Flying Height (Required unit have crow form or fly)              
     // Use: Unit.setz(u,height)              
-    method setz takes unit u, real height returns nothing 
+    static method setz takes unit u, real height returns nothing 
         call SetUnitFlyHeight(u, height, 0.) 
     endmethod 
 

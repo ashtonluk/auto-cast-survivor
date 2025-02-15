@@ -7,6 +7,7 @@ struct GAME
     //Store
     static unit array Survivor 
     static integer array Survivor_Weapon 
+    static key Weapon
 
 
 
@@ -119,12 +120,18 @@ struct GAME
         //Will add more multilboard      
         call BlzLoadTOCFile("war3mapImported\\multiboard.toc") 
         call Preload_Ability('Amls') // Preload skill                                   
+        call Preload_Ability('A004') // Preload skill                                   
+        call Preload_Ability('A001') // Preload skill        
+        call Preload_Ability('A00A') // Preload skill        
+                                   
         call Preload_Unit('uloc') // Preload unit                                  
         call Preload_Unit('e000') // Preload dummy                                  
         call DestroyTimer(GetExpiredTimer()) 
     endmethod 
 
     private static method onInit takes nothing returns nothing 
+        set ItemChecker = CreateItem(DUMMY_ITEM_ID, 1, 1)
+        call SetItemVisible(ItemChecker, false)
         call TimerStart(CreateTimer(), GAME_PRELOAD_TIME, false, function thistype.PreloadMap) 
         call TimerStart(CreateTimer(), GAME_STATUS_TIME, false, function thistype.GameStatus) 
         call TimerStart(CreateTimer(), GAME_SETTING_TIME, false, function thistype.GameSetting) 

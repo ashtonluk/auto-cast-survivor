@@ -50,3 +50,25 @@ struct Eff
         call BlzSetSpecialEffectTime(e, time / 32) 
     endmethod
 endstruct
+
+struct ExRT 
+    private integer i 
+    private effect ex 
+    private static method update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        set.i = i - 1 
+        if( .i < 0) then 
+            call Eff.pos( .ex, 0, 0, - 100)
+            call Eff.size( .ex, 0.001)
+            call DestroyEffect( .ex) 
+            call runtime.end()
+            call this.destroy()
+        endif 
+    endmethod 
+    static method runrt takes effect eff , integer i returns nothing
+        local thistype this = thistype.create() 
+        set.i = i
+        set.ex = eff
+        call runtime.new(this, P32, true, function thistype.update)
+    endmethod
+endstruct

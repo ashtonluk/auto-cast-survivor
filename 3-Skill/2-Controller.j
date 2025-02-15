@@ -244,8 +244,8 @@ struct Wand_Lightning_Controller extends SKILL
             // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
             // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
             loop
-                exitwhen n > 8
-                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                exitwhen n > 6
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
                 if bj_unit != null then 
                     call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
                     call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(.caster))
@@ -266,6 +266,81 @@ struct Wand_Lightning_Controller extends SKILL
         set .start_anim = .time - 1
         call Unit.disablemove(this.caster)
         // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+struct Rod_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+           
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if .time == 18 then 
+            loop
+                exitwhen n > 6
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    call Eff.attach("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", bj_unit, "origin")
+                    call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(bj_unit))
+                    call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(bj_unit))
+                    call DummyX.slow(DummyX.load[Num.uid( .caster)], bj_unit, 10.00, 0.25, 0.25)
+             
+                    call UnitDamageTarget(.caster, bj_unit, .dmg, true, true, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, null) 
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+            call Unit.enabledmove(this.caster)
+        endif
+        if .time == 1 then 
+            call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
+            call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(caster))
+            call DummyX.raise_dead(DummyX.load[Num.uid( .caster)], 'uske', 1, 0, 0, 30.00)
+        endif
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+
+       
+
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        
         set .a = GetUnitFacing(.caster)
         call runtime.new(this, P32, true, function thistype.spell_update) 
         return false 
@@ -478,6 +553,165 @@ struct Claw_Controller extends SKILL
             set rbp.attach = .attach
             set rbp.attach_path = .attach_path
             call rbp.spell_now()
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+struct Dagger_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        local Dagger dg
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            loop
+                exitwhen n > 4
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    set dg = Dagger.create()
+                    set dg.caster =.caster
+                    set dg.ATK_TYPE = ATTACK_TYPE_HERO
+                    set dg.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                    set dg.time = 20
+                    set dg.missle_path = "Objects\\Spawnmodels\\Human\\HumanBlood\\BloodElfSpellThiefBlood.mdl"
+                    set dg.light_name = "chest"
+                    set dg.tick = 19
+                    set dg.aoe = 120
+                    set dg.target = bj_unit
+                    set dg.dmg = .dmg
+                    set dg.x = Unit.x(.caster)
+                    set dg.y = Unit.y(.caster)
+                    call dg.spell_now()
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+  
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+struct Shield_Controller extends SKILL 
+    string attach = ""
+    string attach_path = ""
+    string anim = ""
+    integer start_anim = 0
+    method IsUnitInCone takes unit caster, unit target, real aoeRadius, real coneAngle returns boolean
+        local real casterX = GetUnitX(caster)
+        local real casterY = GetUnitY(caster)
+        local real targetX = GetUnitX(target)
+        local real targetY = GetUnitY(target)
+        
+        local real casterFacing = GetUnitFacing(caster) // Caster's facing direction
+        local real angleToTarget = bj_RADTODEG * Atan2(targetY - casterY, targetX - casterX) // Angle to target
+        
+        local real angleDifference = ModuloReal(angleToTarget - casterFacing + 180, 360) - 180 // Normalize angle
+        local real distance = SquareRoot((targetX - casterX) * (targetX - casterX) + (targetY - casterY) * (targetY - casterY))
+    
+        return ((distance <= aoeRadius) and (RAbsBJ(angleDifference) <= (coneAngle / 2)))
+    endmethod
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local KnockX knoc
+
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            set.missle = Eff.new( .missle_path, .x, .y, Math.pz( .x, .y) + .z) 
+            call Eff.angle( .missle, GetUnitFacing(.caster)) 
+            call Eff.size(.missle, .missle_size)
+            call Eff.pos( .missle, .x, .y, Math.pz( .x, .y) + .z) 
+            call ExRT.runrt(.missle, 32)
+            
+            set g = CreateGroup() 
+            call Group.enum(g, .x, .y, .aoe) 
+            loop 
+                set e = FirstOfGroup(g) 
+                exitwhen(e == null)
+                if .FilterUnit( .caster, e)  and .IsUnitInCone(.caster, e, .aoe, 90)  then 
+                    set knoc = KnockX.create() 
+                    set knoc.ground_sfx = ""
+                    call knoc.knock_now(e, 400, 1, Math.abu(.caster, e), true, true)
+                    call Eff.attach( .attach_path, e, .attach)
+                    call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+                endif 
+                call Group.remove(e, g) 
+            endloop 
+            call Group.release(g) 
+            set e = null 
+            call Unit.enabledmove(this.caster)
             // call PauseUnit(.caster, false)
             call runtime.end() // End the timer                                                                                                                                                                                                       
             call.destroy() // Destroy the instance                                                                   

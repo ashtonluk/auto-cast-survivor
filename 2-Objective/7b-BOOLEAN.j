@@ -18,8 +18,29 @@ struct Boo
     static method isenemy takes unit u, unit e returns boolean 
         return IsUnitEnemy(e, GetOwningPlayer(u)) 
     endmethod 
-    static method iswalk takes real x, real y returns boolean 
-        return IsTerrainPathable(x, y, PATHING_TYPE_WALKABILITY) 
+    static method HideItem takes nothing returns nothing
+        if IsItemVisible(GetEnumItem()) then
+            set Hid[HidMax] = GetEnumItem()
+            call SetItemVisible(Hid[HidMax] , false)
+            set HidMax = HidMax + 1
+        endif
+    endmethod
+    static method iswalk takes real x2, real y2 returns boolean 
+        local real X = 0
+        local real Y = 0
+        call MoveRectTo(Find, x2, y2)
+        call EnumItemsInRect(Find , null, function thistype.HideItem)
+        call SetItemPosition(ItemChecker, x2, y2)
+        set X = GetItemX(ItemChecker)
+        set Y = GetItemY(ItemChecker)
+        call SetItemVisible(ItemChecker, false)
+        loop
+            exitwhen HidMax <= 0
+            set HidMax = HidMax - 1
+            call SetItemVisible(Hid[HidMax] , true)
+            set Hid[HidMax] = null
+        endloop
+        return(X - x2) * (X - x2) + (Y - y2) * (Y - y2) <= MAX_RANGE * MAX_RANGE and not IsTerrainPathable(x2, y2, PATHING_TYPE_WALKABILITY)
     endmethod 
     static method hasitem takes unit u, integer id returns boolean 
         return UnitHasItemOfTypeBJ(u, id)

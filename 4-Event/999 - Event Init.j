@@ -17,10 +17,11 @@ struct REGISTER_EVENT
         call EV_UNIT_DEATH.f_SetupEvent()
         call EV_UNIT_ATTACK.f_SetupEvent()
         call EV_UNIT_SELL.f_SetupEvent()
+        call EV_UNIT_SUMMON.f_SetupEvent()
 
         call EV_PLAYER_LEAVES.f_SetupEvent()
         call EV_PLAYER_CHAT.f_SetupEvent()
-
+        
         call DestroyTimer(GetExpiredTimer()) 
     endmethod
     static method regKey takes oskeytype hotkey, code func returns nothing
