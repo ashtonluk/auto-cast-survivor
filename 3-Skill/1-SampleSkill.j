@@ -14,6 +14,7 @@ struct SKILL
     real p = 0.00 
     real x = 0.00 
     real y = 0.00 
+    real d = 0.00 
     real xt = 0.00 
     real yt = 0.00 
     real z = 0.00 
@@ -61,6 +62,9 @@ struct SKILL
             return true 
         endif 
         return false
+    endmethod
+    method Lerp takes real start, real end, real t returns real
+        return start + (end - start) * t
     endmethod
 endstruct 
 
@@ -1469,6 +1473,14 @@ struct KnockX
             //Same id
         endif
         set .time = .time + 0.03125
+        // call BJDebugMsg(R2S(.time) + " [] "+ R2S(.dur))
+        // if w then 
+        //     call BJDebugMsg("can walk")
+
+        // else
+        //     call BJDebugMsg("can't walk")
+
+        // endif
         if .time > this.dur or not w or this.stop then
             if w == false then //SFX when don't walkable
                 if .ground_sfx != "" then 
@@ -1489,7 +1501,7 @@ struct KnockX
             set this.stop = false
             set this.ktree = false
             set this.amove = false
-            call BJDebugMsg("KnockX End")
+            // call BJDebugMsg("KnockX End")
   
             call runtime.end()
             call this.destroy()
@@ -1550,4 +1562,146 @@ struct KnockX
             call.destroy() // Destroy the instance   
         endif
     endmethod
+endstruct
+struct DeadFly extends SKILL
+    integer tick
+    integer max_tick
+    integer tick2
+    integer max_tick2
+    private static method FlyUpdate takes nothing returns nothing
+        local thistype this = runtime.get() 
+        set .time = .time + 1
+        set .tick2 = .tick2 + 1
+        call SetUnitX(.u, Math.ppx(Unit.x(.u), .speed, .a))
+        call SetUnitY(.u, Math.ppy(Unit.y(.u), .speed, .a))
+        if .time < .tick then 
+            call SetUnitFlyHeight(.u, .Lerp(GetUnitDefaultFlyHeight(.u), .z, .tick2 /.tick), 0)
+        endif
+        if .time == .tick then
+            set .tick2 = 0
+        endif
+        if .time > .tick then 
+            call SetUnitFlyHeight(.u, .Lerp( .z, GetUnitDefaultFlyHeight(.u), .tick2 / (.max_tick -.tick)), 0)
+        endif
+        if .time == .max_tick then 
+            call DestroyEffect(.missle)
+            call runtime.end()
+            call this.destroy()
+        endif 
+    endmethod
+    method fly_now takes nothing returns nothing
+        set .max_tick2 = .max_tick - 1
+        // set df.u = dying
+        // set df.h = 100 
+        // set df.max_tick = 10 
+        // set df.tick = 5 
+        // set df.p = GetUnitDefaultFlyHeight(.u)
+        // set df.a = Math.abu(killing, dying)
+        // set df.speed = 15
+
+
+        set .missle = AddSpecialEffectTarget("Objects\\Spawnmodels\\Other\\HumanBloodCinematicEffect\\HumanBloodCinematicEffect.mdl", .u, "chest")
+      
+        set .z = GetUnitDefaultFlyHeight(.u) +.h
+        call UnitAddAbility(.u, 'Arav')
+        call UnitRemoveAbility(.u, 'Arav')
+        call runtime.new(this, P32, true, function thistype.FlyUpdate)
+    endmethod
+endstruct
+struct RaiseWeapon extends SKILL
+    integer weapon = 0
+    private static method FlyUpdate takes nothing returns nothing
+        local thistype this = runtime.get() 
+        if Boo.isdead(.u) then 
+            call runtime.end()
+            call this.destroy()
+        endif
+        if Boo.isdead(.caster)  or not UnitHasItemOfTypeBJ(.caster, .count) or GAME.Survivor_Weapon[Num.uid(.caster)] != .weapon then 
+            call KillUnit(.u)
+            call runtime.end()
+            call this.destroy()
+        endif
+        // call BJDebugMsg("Weapon Now:" + I2S( GAME.Survivor_Weapon[Num.uid(.caster)]) + " || Weapon: " + I2S(.weapon))
+        if Math.dbu(.caster, .u) > 10000 then 
+            call SetUnitPosition(.u, GetUnitX(.caster), GetUnitY(.caster))
+        endif
+        set .time = .time + 1
+    endmethod
+    method set_now takes nothing returns nothing
+        //set rw = RaiseWeapon.create()
+        // set rw.u = summoned
+        // set rw.caster = caster
+        // set rw.count = 'I006'  //Item ID
+        // set rw.weapon = 'A009'  //Weapon ID
+        //call rw.set_now()
+        call UnitAddAbility(.u, 'Aeth')
+        call runtime.new(this, P32, true, function thistype.FlyUpdate)
+    endmethod
+endstruct
+
+struct Dagger extends SKILL 
+    string attach_path = ""
+    integer tick = 0
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        if Boo.isdead( .caster) or Boo.isdead(.target)  then // Unit chết thì ko làm gì
+            call SetUnitPathing(.caster, true)
+            call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) - 25)
+            call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) - 45)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if .time ==.tick then 
+            call SetUnitAnimation(.caster, "attack")
+            call SetUnitX(.caster, Math.ppx(Unit.x(.target), 100, GetUnitFacing(.target) - 180))
+            call SetUnitY(.caster, Math.ppy(Unit.y(.target), 100, GetUnitFacing(.target) - 180))
+            call Unit.face(.caster, Math.abu(.caster, .target))
+            call Eff.nova("Abilities\\Spells\\NightElf\\Blink\\BlinkTarget.mdl", Unit.x(.caster), Unit.y(.caster))
+        endif
+        set.time = .time - 1 
+        if.time <= 0 then 
+            call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) - 25)
+            call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) - 45)
+            set g = CreateGroup() 
+            call Group.enum(g, GetUnitX(.target), GetUnitY(.target), .aoe) 
+            loop 
+                set e = FirstOfGroup(g) 
+                exitwhen(e == null )
+                if .FilterUnit( .caster, e) then 
+                    call Eff.attach(.missle_path, e, .light_name)
+                    call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+                endif 
+                call Group.remove(e, g) 
+            endloop 
+            call Group.release(g) 
+            set e = null 
+            call SetUnitX(.caster, .x)
+            call SetUnitY(.caster, .y)
+            call SetUnitPathing(.caster, true)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        // .caster
+        // .ATK_TYPE
+        // .DMG_TYPE
+        // .time
+        // .missle_path
+        // .light_name
+        // .tick
+        // .target
+        //.aoe
+        // .dmg
+        //.x 
+        //.y
+        call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) + 25)
+        call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) + 45)
+        call Eff.nova("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", .x, .y)
+        call SetUnitPathing(.caster, false)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
 endstruct

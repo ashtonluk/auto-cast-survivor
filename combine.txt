@@ -26,7 +26,12 @@ globals
     constant real P64 = 0.03125 * 2 // Explore this number; it truly has significance.       
     //Environment Dev      
     constant boolean ENV_DEV = true // Are u on a testing mode ?        
-
+    constant real MAX_RANGE = 10.
+    constant integer DUMMY_ITEM_ID = 'wolg'
+    item ItemChecker = null
+    rect Find = null
+    item array Hid
+    integer HidMax = 0
     //Utils          
     constant string SYSTEM_CHAT = "[SYSTEM]: |cffffcc00" 
 
@@ -56,9 +61,9 @@ globals
     constant real GAME_START_TIME = 5.00 
     constant string green = "|cff0afd2b" 
     constant string purple = "|cffb308b3" 
-    constant  string blue = "|cff5264ff" 
-    constant  string yellow = "|cffFFCC00" 
-    constant  string cyan = "|cff00d9ff" 
+    constant string blue = "|cff5264ff" 
+    constant string yellow = "|cffFFCC00" 
+    constant string cyan = "|cff00d9ff" 
 endglobals 
 
 
@@ -221,13 +226,15 @@ struct BSTAT
 endstruct 
 
 struct Bonus 
-    static integer Physical = StringHash("phys") 
-    static integer Spell = StringHash("spell") 
-    static integer Crit = StringHash("crit") 
-    static integer CritDmg = StringHash("critdmg") 
-    static integer anim = StringHash("anim") 
-    static integer cd = StringHash("cd") 
-    static integer default_crit = 0
+    static key Physical 
+    static key Spell 
+    static key Crit 
+    static key CritDmg 
+    static key Evasion 
+    static key anim
+    static key cd
+    static integer default_crit = 15
+    static integer default_evasion = 3
     static integer default_crit_dmg = 135
     static method stat takes unit u , integer st returns integer 
         return LoadInteger(stats, GetHandleId(u), st)
@@ -259,8 +266,9 @@ struct Bonus
     static method apply takes unit u returns nothing 
         call .save_stat(u, .Physical, 0)
         call .save_stat(u, .Spell, 0)
-        call .save_stat(u, .Crit, 15)
-        call .save_stat(u, .CritDmg, 175)
+        call .save_stat(u, .Crit, 0)
+        call .save_stat(u, .Evasion, 0)
+        call .save_stat(u, .CritDmg, 0)
         call .save_stat(u, .anim, 0)
         call .save_stat(u, .cd, 0)
     endmethod
@@ -291,7 +299,7 @@ struct DMGSTAT
         set.idc = GetHandleId(DMGSTAT.caster) 
         set.crit_dmg = Bonus.stat_real_bonus_rate(DMGSTAT.caster, Bonus.CritDmg, Bonus.default_crit_dmg)
         set.crit_chance = Bonus.stat_real(DMGSTAT.caster, Bonus.Crit, Bonus.default_crit)
-        set.evasion = 0 + LoadReal(stats, .idv, BSTAT.evasion) 
+        set.evasion = Bonus.stat_real(DMGSTAT.victim, Bonus.Evasion, Bonus.default_evasion)
         set.resist_spell = 0 + LoadReal(stats, .idv, BSTAT.resist_spell) 
         set.pierce_spell = 0 + LoadReal(stats, .idc, BSTAT.pierce_spell) 
 
@@ -1277,15 +1285,18 @@ struct Unit
     static method z takes unit u returns real 
         return GetUnitFlyHeight(u) 
     endmethod 
-    method setx takes unit u, real x returns nothing 
+    static method face takes unit u, real a returns nothing 
+        call SetUnitFacing(u, a) 
+    endmethod 
+    static method setx takes unit u, real x returns nothing 
         call SetUnitX(u, x) 
     endmethod 
-    method sety takes unit u, real y returns nothing 
+    static method sety takes unit u, real y returns nothing 
         call SetUnitY(u, y) 
     endmethod 
     // Set Flying Height (Required unit have crow form or fly)              
     // Use: Unit.setz(u,height)              
-    method setz takes unit u, real height returns nothing 
+    static method setz takes unit u, real height returns nothing 
         call SetUnitFlyHeight(u, height, 0.) 
     endmethod 
 
@@ -1685,6 +1696,28 @@ struct Eff
     endmethod
 endstruct
 
+struct ExRT 
+    private integer i 
+    private effect ex 
+    private static method update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        set.i = i - 1 
+        if( .i < 0) then 
+            call Eff.pos( .ex, 0, 0, - 100)
+            call Eff.size( .ex, 0.001)
+            call DestroyEffect( .ex) 
+            call runtime.end()
+            call this.destroy()
+        endif 
+    endmethod 
+    static method runrt takes effect eff , integer i returns nothing
+        local thistype this = thistype.create() 
+        set.i = i
+        set.ex = eff
+        call runtime.new(this, P32, true, function thistype.update)
+    endmethod
+endstruct
+
 //--- Content from folder: ./2-Objective/6a-DUMMY.j ---
 
 //Use :                               
@@ -1920,8 +1953,29 @@ struct Boo
     static method isenemy takes unit u, unit e returns boolean 
         return IsUnitEnemy(e, GetOwningPlayer(u)) 
     endmethod 
-    static method iswalk takes real x, real y returns boolean 
-        return IsTerrainPathable(x, y, PATHING_TYPE_WALKABILITY) 
+    static method HideItem takes nothing returns nothing
+        if IsItemVisible(GetEnumItem()) then
+            set Hid[HidMax] = GetEnumItem()
+            call SetItemVisible(Hid[HidMax] , false)
+            set HidMax = HidMax + 1
+        endif
+    endmethod
+    static method iswalk takes real x2, real y2 returns boolean 
+        local real X = 0
+        local real Y = 0
+        call MoveRectTo(Find, x2, y2)
+        call EnumItemsInRect(Find , null, function thistype.HideItem)
+        call SetItemPosition(ItemChecker, x2, y2)
+        set X = GetItemX(ItemChecker)
+        set Y = GetItemY(ItemChecker)
+        call SetItemVisible(ItemChecker, false)
+        loop
+            exitwhen HidMax <= 0
+            set HidMax = HidMax - 1
+            call SetItemVisible(Hid[HidMax] , true)
+            set Hid[HidMax] = null
+        endloop
+        return(X - x2) * (X - x2) + (Y - y2) * (Y - y2) <= MAX_RANGE * MAX_RANGE and not IsTerrainPathable(x2, y2, PATHING_TYPE_WALKABILITY)
     endmethod 
     static method hasitem takes unit u, integer id returns boolean 
         return UnitHasItemOfTypeBJ(u, id)
@@ -2221,6 +2275,7 @@ struct SKILL
     real p = 0.00 
     real x = 0.00 
     real y = 0.00 
+    real d = 0.00 
     real xt = 0.00 
     real yt = 0.00 
     real z = 0.00 
@@ -2268,6 +2323,9 @@ struct SKILL
             return true 
         endif 
         return false
+    endmethod
+    method Lerp takes real start, real end, real t returns real
+        return start + (end - start) * t
     endmethod
 endstruct 
 
@@ -3676,6 +3734,14 @@ struct KnockX
             //Same id
         endif
         set .time = .time + 0.03125
+        call BJDebugMsg(R2S(.time) + " [] "+ R2S(.dur))
+        if w then 
+            call BJDebugMsg("can walk")
+
+        else
+            call BJDebugMsg("can't walk")
+
+        endif
         if .time > this.dur or not w or this.stop then
             if w == false then //SFX when don't walkable
                 if .ground_sfx != "" then 
@@ -3696,7 +3762,7 @@ struct KnockX
             set this.stop = false
             set this.ktree = false
             set this.amove = false
-            call BJDebugMsg("KnockX End")
+            // call BJDebugMsg("KnockX End")
   
             call runtime.end()
             call this.destroy()
@@ -3758,7 +3824,148 @@ struct KnockX
         endif
     endmethod
 endstruct
+struct DeadFly extends SKILL
+    integer tick
+    integer max_tick
+    integer tick2
+    integer max_tick2
+    private static method FlyUpdate takes nothing returns nothing
+        local thistype this = runtime.get() 
+        set .time = .time + 1
+        set .tick2 = .tick2 + 1
+        call SetUnitX(.u, Math.ppx(Unit.x(.u), .speed, .a))
+        call SetUnitY(.u, Math.ppy(Unit.y(.u), .speed, .a))
+        if .time < .tick then 
+            call SetUnitFlyHeight(.u, .Lerp(GetUnitDefaultFlyHeight(.u), .z, .tick2 /.tick), 0)
+        endif
+        if .time == .tick then
+            set .tick2 = 0
+        endif
+        if .time > .tick then 
+            call SetUnitFlyHeight(.u, .Lerp( .z, GetUnitDefaultFlyHeight(.u), .tick2 / (.max_tick -.tick)), 0)
+        endif
+        if .time == .max_tick then 
+            call DestroyEffect(.missle)
+            call runtime.end()
+            call this.destroy()
+        endif 
+    endmethod
+    method fly_now takes nothing returns nothing
+        set .max_tick2 = .max_tick - 1
+        // set df.u = dying
+        // set df.h = 100 
+        // set df.max_tick = 10 
+        // set df.tick = 5 
+        // set df.p = GetUnitDefaultFlyHeight(.u)
+        // set df.a = Math.abu(killing, dying)
+        // set df.speed = 15
 
+
+        set .missle = AddSpecialEffectTarget("Objects\\Spawnmodels\\Other\\HumanBloodCinematicEffect\\HumanBloodCinematicEffect.mdl", .u, "chest")
+      
+        set .z = GetUnitDefaultFlyHeight(.u) +.h
+        call UnitAddAbility(.u, 'Arav')
+        call UnitRemoveAbility(.u, 'Arav')
+        call runtime.new(this, P32, true, function thistype.FlyUpdate)
+    endmethod
+endstruct
+struct RaiseWeapon extends SKILL
+    integer weapon = 0
+    private static method FlyUpdate takes nothing returns nothing
+        local thistype this = runtime.get() 
+        if Boo.isdead(.u) then 
+            call runtime.end()
+            call this.destroy()
+        endif
+        if Boo.isdead(.caster)  or not UnitHasItemOfTypeBJ(.caster, .count) or GAME.Survivor_Weapon[Num.uid(.caster)] != .weapon then 
+            call KillUnit(.u)
+            call runtime.end()
+            call this.destroy()
+        endif
+        // call BJDebugMsg("Weapon Now:" + I2S( GAME.Survivor_Weapon[Num.uid(.caster)]) + " || Weapon: " + I2S(.weapon))
+        if Math.dbu(.caster, .u) > 10000 then 
+            call SetUnitPosition(.u, GetUnitX(.caster), GetUnitY(.caster))
+        endif
+        set .time = .time + 1
+    endmethod
+    method set_now takes nothing returns nothing
+        //set rw = RaiseWeapon.create()
+        // set rw.u = summoned
+        // set rw.caster = caster
+        // set rw.count = 'I006'  //Item ID
+        // set rw.weapon = 'A009'  //Weapon ID
+        //call rw.set_now()
+        call UnitAddAbility(.u, 'Aeth')
+        call runtime.new(this, P32, true, function thistype.FlyUpdate)
+    endmethod
+endstruct
+
+struct Dagger extends SKILL 
+    string attach_path = ""
+    integer tick = 0
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        if Boo.isdead( .caster) or Boo.isdead(.target)  then // Unit chết thì ko làm gì
+            call SetUnitPathing(.caster, true)
+            call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) - 25)
+            call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) - 45)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if .time ==.tick then 
+            call SetUnitAnimation(.caster, "attack")
+            call SetUnitX(.caster, Math.ppx(Unit.x(.target), 100, GetUnitFacing(.target) - 180))
+            call SetUnitY(.caster, Math.ppy(Unit.y(.target), 100, GetUnitFacing(.target) - 180))
+            call Unit.face(.caster, Math.abu(.caster, .target))
+            call Eff.nova("Abilities\\Spells\\NightElf\\Blink\\BlinkTarget.mdl", Unit.x(.caster), Unit.y(.caster))
+        endif
+        set.time = .time - 1 
+        if.time <= 0 then 
+            call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) - 25)
+            call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) - 45)
+            set g = CreateGroup() 
+            call Group.enum(g, GetUnitX(.target), GetUnitY(.target), .aoe) 
+            loop 
+                set e = FirstOfGroup(g) 
+                exitwhen(e == null )
+                if .FilterUnit( .caster, e) then 
+                    call Eff.attach(.missle_path, e, .light_name)
+                    call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+                endif 
+                call Group.remove(e, g) 
+            endloop 
+            call Group.release(g) 
+            set e = null 
+            call SetUnitX(.caster, .x)
+            call SetUnitY(.caster, .y)
+            call SetUnitPathing(.caster, true)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        // .caster
+        // .ATK_TYPE
+        // .DMG_TYPE
+        // .time
+        // .missle_path
+        // .light_name
+        // .tick
+        // .target
+        //.aoe
+        // .dmg
+        //.x 
+        //.y
+        call Bonus.save_stat(.caster, Bonus.Crit, Bonus.stat(.caster, Bonus.Crit) + 25)
+        call Bonus.save_stat(.caster, Bonus.Evasion, Bonus.stat(.caster, Bonus.Evasion) + 45)
+        call Eff.nova("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", .x, .y)
+        call SetUnitPathing(.caster, false)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
 
 //--- Content from folder: ./3-Skill/2-Controller.j ---
 struct Attack_Controller extends SKILL 
@@ -4007,8 +4214,8 @@ struct Wand_Lightning_Controller extends SKILL
             // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
             // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
             loop
-                exitwhen n > 8
-                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                exitwhen n > 6
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
                 if bj_unit != null then 
                     call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
                     call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(.caster))
@@ -4065,15 +4272,15 @@ struct Rod_Controller extends SKILL
         // endif
         // call SetUnitFacing(.caster, .a)
         set.time = .time - 1 
-        if .time == 1 then 
+        if .time == 18 then 
             loop
-                exitwhen n > 8
-                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 75 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 75 * n, GetUnitFacing(.caster)) , 150) // set bj_unit = enemy gần nhất
+                exitwhen n > 6
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
                 if bj_unit != null then 
                     call Eff.attach("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", bj_unit, "origin")
                     call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(bj_unit))
                     call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(bj_unit))
-                    call DummyX.slow(DummyX.load[Num.uid( .caster)], bj_unit, 4.00, 0.25, 0.25)
+                    call DummyX.slow(DummyX.load[Num.uid( .caster)], bj_unit, 10.00, 0.25, 0.25)
              
                     call UnitDamageTarget(.caster, bj_unit, .dmg, true, true, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, null) 
                     exitwhen true
@@ -4081,16 +4288,19 @@ struct Rod_Controller extends SKILL
                 set n = n + 1
             endloop
             call Aiming.reset() // set bj_u == null
+            call Unit.enabledmove(this.caster)
+        endif
+        if .time == 1 then 
+            call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
+            call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(caster))
+            call DummyX.raise_dead(DummyX.load[Num.uid( .caster)], 'uske', 1, 0, 0, 30.00)
         endif
         if.time <= 0  then 
             // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
             // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
-            call SetUnitX(DummyX.load[Num.uid( .caster)] , GetUnitX(.caster))
-            call SetUnitY(DummyX.load[Num.uid( .caster)] , GetUnitY(caster))
-            call DummyX.raise_dead(DummyX.load[Num.uid( .caster)], 'uske', 1, 0, 0, 24.00)
+
        
-  
-            call Unit.enabledmove(this.caster)
+
             // call PauseUnit(.caster, false)
             call runtime.end() // End the timer                                                                                                                                                                                                       
             call.destroy() // Destroy the instance                                                                   
@@ -4313,6 +4523,164 @@ struct Claw_Controller extends SKILL
             set rbp.attach = .attach
             set rbp.attach_path = .attach_path
             call rbp.spell_now()
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+struct Dagger_Controller extends SKILL 
+    string anim = ""
+    integer start_anim = 0
+    
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local integer n = 1
+        local Dagger dg
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            // set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            // set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            loop
+                exitwhen n > 4
+                call Aiming.enemy_nearest( .caster, Math.ppx(Unit.x(.caster), 100 * n, GetUnitFacing(.caster)) , Math.ppy(Unit.y(.caster), 100 * n, GetUnitFacing(.caster)) , 200) // set bj_unit = enemy gần nhất
+                if bj_unit != null then 
+                    set dg = Dagger.create()
+                    set dg.caster =.caster
+                    set dg.ATK_TYPE = ATTACK_TYPE_HERO
+                    set dg.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                    set dg.time = 20
+                    set dg.missle_path = "Objects\\Spawnmodels\\Human\\HumanBlood\\BloodElfSpellThiefBlood.mdl"
+                    set dg.light_name = "chest"
+                    set dg.tick = 19
+                    set dg.aoe = 120
+                    set dg.target = bj_unit
+                    set dg.dmg = .dmg
+                    set dg.x = Unit.x(.caster)
+                    set dg.y = Unit.y(.caster)
+                    call dg.spell_now()
+                    exitwhen true
+                endif
+                set n = n + 1
+            endloop
+            call Aiming.reset() // set bj_u == null
+  
+            call Unit.enabledmove(this.caster)
+            // call PauseUnit(.caster, false)
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance                                                                   
+        endif 
+    endmethod 
+    method spell_now takes nothing returns boolean 
+        set .start_anim = .time - 1
+        call Unit.disablemove(this.caster)
+        // call PauseUnit(.caster, true)
+        set .a = GetUnitFacing(.caster)
+        call runtime.new(this, P32, true, function thistype.spell_update) 
+        return false 
+    endmethod 
+endstruct
+
+struct Shield_Controller extends SKILL 
+    string attach = ""
+    string attach_path = ""
+    string anim = ""
+    integer start_anim = 0
+    method IsUnitInCone takes unit caster, unit target, real aoeRadius, real coneAngle returns boolean
+        local real casterX = GetUnitX(caster)
+        local real casterY = GetUnitY(caster)
+        local real targetX = GetUnitX(target)
+        local real targetY = GetUnitY(target)
+        
+        local real casterFacing = GetUnitFacing(caster) // Caster's facing direction
+        local real angleToTarget = bj_RADTODEG * Atan2(targetY - casterY, targetX - casterX) // Angle to target
+        
+        local real angleDifference = ModuloReal(angleToTarget - casterFacing + 180, 360) - 180 // Normalize angle
+        local real distance = SquareRoot((targetX - casterX) * (targetX - casterX) + (targetY - casterY) * (targetY - casterY))
+    
+        return ((distance <= aoeRadius) and (RAbsBJ(angleDifference) <= (coneAngle / 2)))
+    endmethod
+    private static method spell_update takes nothing returns nothing 
+        local thistype this = runtime.get() 
+        local group g = null 
+        local unit e = null 
+        local KnockX knoc
+
+        if Boo.isdead( .caster) then // Unit chết thì ko làm gì
+            // call PauseUnit(.caster, false)
+            call Unit.enabledmove(this.caster)
+            // call DestroyEffect( .missle) 
+            call runtime.end() // End the timer                                                                                                                                                                                                       
+            call.destroy() // Destroy the instance 
+        endif
+        if.time == .start_anim then 
+            call SetUnitAnimation(.caster, .anim)
+        endif
+
+        call SetUnitFacingTimed(.caster, quickcast.getUA(.caster), 0.03125 * 2)
+        // set bj_real = quickcast.getUA(.caster)
+        // if .a > bj_real then 
+        //     set .a = .a - 5
+        // elseif .a < bj_real then 
+        //     set .a = .a + 5
+        // endif
+        // call SetUnitFacing(.caster, .a)
+        set.time = .time - 1 
+        if.time <= 0  then 
+            set.x = Math.ppx( Unit.x(.caster), .speed, GetUnitFacing(.caster)) 
+            set.y = Math.ppy( Unit.y(.caster), .speed, GetUnitFacing(.caster)) 
+            set.missle = Eff.new( .missle_path, .x, .y, Math.pz( .x, .y) + .z) 
+            call Eff.angle( .missle, GetUnitFacing(.caster)) 
+            call Eff.size(.missle, .missle_size)
+            call Eff.pos( .missle, .x, .y, Math.pz( .x, .y) + .z) 
+            call ExRT.runrt(.missle,32)
+            
+            set g = CreateGroup() 
+            call Group.enum(g, .x, .y, .aoe) 
+            loop 
+                set e = FirstOfGroup(g) 
+                exitwhen(e == null)
+                if .FilterUnit( .caster, e)  and .IsUnitInCone(.caster, e, .aoe, 90)  then 
+                    set knoc = KnockX.create() 
+                    call knoc.knock_now(e, 400, 1, Math.abu(.caster, e), true, true)
+                    call Eff.attach( .attach_path, e, .attach)
+                    call UnitDamageTarget(.caster, e, .dmg, true, true, .ATK_TYPE, .DMG_TYPE, null) 
+                endif 
+                call Group.remove(e, g) 
+            endloop 
+            call Group.release(g) 
+            set e = null 
+            call Unit.enabledmove(this.caster)
             // call PauseUnit(.caster, false)
             call runtime.end() // End the timer                                                                                                                                                                                                       
             call.destroy() // Destroy the instance                                                                   
@@ -4561,6 +4929,8 @@ struct EV_UNIT_DEATH
         local integer pkid = Num.uid(killer) //Id player of killer    
         local integer rd = 0
         local integer n = 0
+
+        local DeadFly df
         //For EXAMPLE QUEST, comment it if not use   
         // if did == QUEST_EXAMPLE.archer_id then 
         //     call QUEST_EXAMPLE.kill_archer() 
@@ -4574,6 +4944,17 @@ struct EV_UNIT_DEATH
         // 
         if not IsUnitType(dying, UNIT_TYPE_HERO) then 
             call FlushChildHashtable(ht, hdid)
+        endif
+        if did == 'n000' or did == 'n001' then 
+            set df = DeadFly.create()
+            set df.u = dying
+            set df.h = 100 
+            set df.max_tick = 16 
+            set df.tick = 8 
+            set df.p = GetUnitDefaultFlyHeight(dying)
+            set df.a = Math.abu(killer, dying)
+            set df.speed = 20
+            call df.fly_now()
         endif
         if IsUnitType(dying, UNIT_TYPE_HERO) == true and pdid == 11 then 
             // loop
@@ -4668,7 +5049,11 @@ struct EV_START_SPELL_EFFECT
             elseif GAME.Survivor_Weapon[pid] == 'A008' then //Claw
                 set timed = 2.0
             elseif GAME.Survivor_Weapon[pid] == 'A009' then //Rod
-                set timed = 3.0
+                set timed = 10.0
+            elseif GAME.Survivor_Weapon[pid] == 'A00C' then //Dagger
+                set timed = 1.8
+            elseif GAME.Survivor_Weapon[pid] == 'A00D' then //Shield
+                set timed = 3.2
             endif
             if(timed > 1.00) then // các đòn đánh có ít nhất 1s cooldown
                 call BlzSetAbilityRealLevelField(GetSpellAbility() , ABILITY_RLF_COOLDOWN, 0, (timed * (1.00 - max_CD)))
@@ -4680,8 +5065,9 @@ struct EV_START_SPELL_EFFECT
         endif
 
         /// Equip Weapon
-        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'  or abicode == 'A009'then 
+        if abicode == 'A002' or abicode == 'A003' or abicode == 'A005' or abicode == 'A006' or abicode == 'A007' or abicode == 'A008'  or abicode == 'A009' or abicode == 'A00C' or abicode == 'A00D' then 
             set GAME.Survivor_Weapon[pid] = abicode
+            // call SaveInteger(ht, GetHandleId(caster), GAME.Weapon, abicode)
         endif
 
 
@@ -4727,6 +5113,8 @@ struct Unit_Attack
         local Axe_Controller axe
         local Claw_Controller cl
         local Rod_Controller rod
+        local Dagger_Controller dg
+        local Shield_Controller sc
         
         if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
@@ -4882,7 +5270,7 @@ struct Unit_Attack
             if Boo.hasitem(caster, 'I006') then //Rod item 
                 set rod = Rod_Controller.create()
                 set rod.caster = caster 
-                set rod.time = 20
+                set rod.time = 32
                 set rod.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 0.25) + (Hero.int(caster) * 1.00 )
                 set rod.anim = "spell"
                 call rod.spell_now()
@@ -4892,18 +5280,74 @@ struct Unit_Attack
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
             endif
         endif
+        if abicode == 'A00C' then //Dagger
+            if Boo.hasitem(caster, 'I007') then //Dagger item 
+                set dg = Dagger_Controller.create()
+                set dg.caster = caster 
+                set dg.time = 20
+                set dg.dmg = (Hero.str(caster) * 0.85 ) + (Hero.agi(caster) * 1.05) + (Hero.int(caster) * 0.85 )
+                set dg.anim = "spell"
+                call dg.spell_now()
+                // call BJDebugMsg("lightning")
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+        endif
+        if abicode == 'A00D' then //Shield
+            if Boo.hasitem(caster, 'I008') then //Shield item 
+                set sc = Shield_Controller.create()
+                set sc.time = 20
+                set sc.caster = caster 
+                set sc.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                set sc.ATK_TYPE = ATTACK_TYPE_HERO
+                set sc.dmg = (Hero.str(caster) * 0.165 ) + (Hero.agi(caster) * 0.55) + (Hero.int(caster) * 0.55 )
+                set sc.speed = 150
+                set sc.aoe = 165
+                set sc.missle_path = "Abilities\\Spells\\Other\\BreathOfFire\\BreathOfFireMissile.mdl" 
+                set sc.missle_size = 0.65
+                set sc.anim = "attack"
+                set sc.attach = "chest"
+                set sc.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
+                call sc.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+       
+        endif
     endmethod
 endstruct
 
 //--- Content from folder: ./4-Event/5d- Unit - Summoned.j ---
 
 struct EV_UNIT_SUMMON
+    static key owner 
     static method f_Checking takes nothing returns boolean 
         local unit summoned = GetSummonedUnit()
         local integer idc = GetUnitTypeId(summoned) 
         local integer pid = Num.uid(summoned) 
-        call SaveUnitHandle(ht, GetHandleId(summoned), StringHash("owner"), GAME.Survivor[pid])
-        call BJDebugMsg(GetUnitName(summoned))
+        local integer id = GetUnitTypeId(summoned)
+        local integer hid = GetHandleId(summoned)
+
+        local RaiseWeapon rw
+        call SaveUnitHandle(ht, hid, .owner , GAME.Survivor[pid])
+        if id == 'uske' then //Skeleton Warrior
+            call BlzSetUnitName(summoned, "Skeleton Warrior - " + GetUnitName(LoadUnitHandle(ht, hid, .owner )))
+            call BlzSetUnitBaseDamage( summoned, R2I(0.55 * Hero.int(LoadUnitHandle(ht, hid, .owner ))), 0 )
+            call BlzSetUnitMaxHP( summoned, R2I(20 * Hero.int(LoadUnitHandle(ht, hid, .owner ))))
+            call BlzSetUnitRealFieldBJ( summoned, UNIT_RF_HP, 20 * Hero.int(LoadUnitHandle(ht, hid, .owner ))) 
+            call BlzSetUnitArmor( summoned, 0.5 * Hero.int(LoadUnitHandle(ht, hid, .owner )) )
+            call BlzSetUnitRealFieldBJ( summoned, UNIT_RF_DEFENSE, 0.5 * Hero.int(LoadUnitHandle(ht, hid, .owner )))
+            call Unit.setlife(summoned, 20 * Hero.int(LoadUnitHandle(ht, hid, .owner )))
+
+            set rw = RaiseWeapon.create()
+            set rw.u = summoned
+            set rw.caster = GAME.Survivor[pid]
+            set rw.weapon = 'A009'
+            set rw.count = 'I006'  //Item ID
+            call rw.set_now()
+        endif
         set summoned = null 
         return false 
     endmethod 
@@ -4914,6 +5358,7 @@ struct EV_UNIT_SUMMON
     endmethod 
 
 endstruct 
+
 
 
 //--- Content from folder: ./4-Event/6 - Hero - LearnSpell.j ---
@@ -5642,6 +6087,7 @@ struct GAME
     //Store
     static unit array Survivor 
     static integer array Survivor_Weapon 
+    static key Weapon
 
 
 
@@ -5764,6 +6210,8 @@ struct GAME
     endmethod 
 
     private static method onInit takes nothing returns nothing 
+        set ItemChecker = CreateItem(DUMMY_ITEM_ID, 1, 1)
+        call SetItemVisible(ItemChecker, false)
         call TimerStart(CreateTimer(), GAME_PRELOAD_TIME, false, function thistype.PreloadMap) 
         call TimerStart(CreateTimer(), GAME_STATUS_TIME, false, function thistype.GameStatus) 
         call TimerStart(CreateTimer(), GAME_SETTING_TIME, false, function thistype.GameSetting) 

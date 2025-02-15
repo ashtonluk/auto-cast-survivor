@@ -10,13 +10,15 @@ struct BSTAT
 endstruct 
 
 struct Bonus 
-    static integer Physical = StringHash("phys") 
-    static integer Spell = StringHash("spell") 
-    static integer Crit = StringHash("crit") 
-    static integer CritDmg = StringHash("critdmg") 
-    static integer anim = StringHash("anim") 
-    static integer cd = StringHash("cd") 
-    static integer default_crit = 0
+    static key Physical 
+    static key Spell 
+    static key Crit 
+    static key CritDmg 
+    static key Evasion 
+    static key anim
+    static key cd
+    static integer default_crit = 15
+    static integer default_evasion = 3
     static integer default_crit_dmg = 135
     static method stat takes unit u , integer st returns integer 
         return LoadInteger(stats, GetHandleId(u), st)
@@ -48,8 +50,9 @@ struct Bonus
     static method apply takes unit u returns nothing 
         call .save_stat(u, .Physical, 0)
         call .save_stat(u, .Spell, 0)
-        call .save_stat(u, .Crit, 15)
-        call .save_stat(u, .CritDmg, 175)
+        call .save_stat(u, .Crit, 0)
+        call .save_stat(u, .Evasion, 0)
+        call .save_stat(u, .CritDmg, 0)
         call .save_stat(u, .anim, 0)
         call .save_stat(u, .cd, 0)
     endmethod
@@ -80,7 +83,7 @@ struct DMGSTAT
         set.idc = GetHandleId(DMGSTAT.caster) 
         set.crit_dmg = Bonus.stat_real_bonus_rate(DMGSTAT.caster, Bonus.CritDmg, Bonus.default_crit_dmg)
         set.crit_chance = Bonus.stat_real(DMGSTAT.caster, Bonus.Crit, Bonus.default_crit)
-        set.evasion = 0 + LoadReal(stats, .idv, BSTAT.evasion) 
+        set.evasion = Bonus.stat_real(DMGSTAT.victim, Bonus.Evasion, Bonus.default_evasion)
         set.resist_spell = 0 + LoadReal(stats, .idv, BSTAT.resist_spell) 
         set.pierce_spell = 0 + LoadReal(stats, .idc, BSTAT.pierce_spell) 
 

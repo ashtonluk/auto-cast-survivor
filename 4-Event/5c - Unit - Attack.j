@@ -8,6 +8,8 @@ struct Unit_Attack
         local Axe_Controller axe
         local Claw_Controller cl
         local Rod_Controller rod
+        local Dagger_Controller dg
+        local Shield_Controller sc
         
         if abicode == 'A000' then //Normal attack
             set atk = Attack_Controller.create()
@@ -163,7 +165,7 @@ struct Unit_Attack
             if Boo.hasitem(caster, 'I006') then //Rod item 
                 set rod = Rod_Controller.create()
                 set rod.caster = caster 
-                set rod.time = 20
+                set rod.time = 32
                 set rod.dmg = (Hero.str(caster) * 0.25 ) + (Hero.agi(caster) * 0.25) + (Hero.int(caster) * 1.00 )
                 set rod.anim = "spell"
                 call rod.spell_now()
@@ -172,6 +174,42 @@ struct Unit_Attack
                 set GAME.Survivor_Weapon[pid] = 'A000'
                 call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
             endif
+        endif
+        if abicode == 'A00C' then //Dagger
+            if Boo.hasitem(caster, 'I007') then //Dagger item 
+                set dg = Dagger_Controller.create()
+                set dg.caster = caster 
+                set dg.time = 20
+                set dg.dmg = (Hero.str(caster) * 0.85 ) + (Hero.agi(caster) * 1.05) + (Hero.int(caster) * 0.85 )
+                set dg.anim = "spell"
+                call dg.spell_now()
+                // call BJDebugMsg("lightning")
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+        endif
+        if abicode == 'A00D' then //Shield
+            if Boo.hasitem(caster, 'I008') then //Shield item 
+                set sc = Shield_Controller.create()
+                set sc.time = 20
+                set sc.caster = caster 
+                set sc.DMG_TYPE = DAMAGE_TYPE_NORMAL
+                set sc.ATK_TYPE = ATTACK_TYPE_HERO
+                set sc.dmg = (Hero.str(caster) * 0.165 ) + (Hero.agi(caster) * 0.55) + (Hero.int(caster) * 0.55 )
+                set sc.speed = 150
+                set sc.aoe = 165
+                set sc.missle_path = "Abilities\\Spells\\Other\\BreathOfFire\\BreathOfFireMissile.mdl" 
+                set sc.missle_size = 0.65
+                set sc.anim = "attack"
+                set sc.attach = "chest"
+                set sc.attach_path = "Objects\\Spawnmodels\\Critters\\Albatross\\CritterBloodAlbatross.mdl"
+                call sc.spell_now()
+            else 
+                set GAME.Survivor_Weapon[pid] = 'A000'
+                call .attack(caster, GAME.Survivor_Weapon[pid] , pid)
+            endif
+       
         endif
     endmethod
 endstruct

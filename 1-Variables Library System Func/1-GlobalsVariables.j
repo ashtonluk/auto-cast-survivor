@@ -25,7 +25,12 @@ globals
     constant real P64 = 0.03125 * 2 // Explore this number; it truly has significance.       
     //Environment Dev      
     constant boolean ENV_DEV = true // Are u on a testing mode ?        
-
+    constant real MAX_RANGE = 10.
+    constant integer DUMMY_ITEM_ID = 'wolg'
+    item ItemChecker = null
+    rect Find = null
+    item array Hid
+    integer HidMax = 0
     //Utils          
     constant string SYSTEM_CHAT = "[SYSTEM]: |cffffcc00" 
 
@@ -55,8 +60,8 @@ globals
     constant real GAME_START_TIME = 5.00 
     constant string green = "|cff0afd2b" 
     constant string purple = "|cffb308b3" 
-    constant  string blue = "|cff5264ff" 
-    constant  string yellow = "|cffFFCC00" 
-    constant  string cyan = "|cff00d9ff" 
+    constant string blue = "|cff5264ff" 
+    constant string yellow = "|cffFFCC00" 
+    constant string cyan = "|cff00d9ff" 
 endglobals 
 

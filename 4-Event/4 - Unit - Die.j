@@ -12,6 +12,8 @@ struct EV_UNIT_DEATH
         local integer pkid = Num.uid(killer) //Id player of killer    
         local integer rd = 0
         local integer n = 0
+
+        local DeadFly df
         //For EXAMPLE QUEST, comment it if not use   
         // if did == QUEST_EXAMPLE.archer_id then 
         //     call QUEST_EXAMPLE.kill_archer() 
@@ -25,6 +27,17 @@ struct EV_UNIT_DEATH
         // 
         if not IsUnitType(dying, UNIT_TYPE_HERO) then 
             call FlushChildHashtable(ht, hdid)
+        endif
+        if did == 'n000' or did == 'n001' then 
+            set df = DeadFly.create()
+            set df.u = dying
+            set df.h = 100 
+            set df.max_tick = 16 
+            set df.tick = 8 
+            set df.p = GetUnitDefaultFlyHeight(dying)
+            set df.a = Math.abu(killer, dying)
+            set df.speed = 20
+            call df.fly_now()
         endif
         if IsUnitType(dying, UNIT_TYPE_HERO) == true and pdid == 11 then 
             // loop

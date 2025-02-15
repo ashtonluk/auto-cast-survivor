@@ -1,8 +1,14 @@
  - Spawn quái 
  - Pick Hero
  - ITem
+- healer 
+- shield
 
  - Công trình:
- - Rock sealed : Hồi sinh đơn lẻ 1 đồng minh. Tăng tầm nhìn : Sửa chữa 30 đá
+ - Rock sealed : Sử dụng mana Hồi sinh đơn lẻ 1 đồng minh. Tăng tầm nhìn : Sửa chữa 30 đá
+ - Infinity Well: Sản xuất bình mana mỗi 15s 
+ - Shipyard : Sản xuất cá mỗi 15s
+ - Thousand Ancient Tree: Tăng tối đa muôn thú xuất hiện trong rừng
  - Tower x3: Sửa chữa 15 đá
  
+ whosyourdaddy
